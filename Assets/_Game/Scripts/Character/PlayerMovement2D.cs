@@ -1,4 +1,5 @@
 using System;
+using AICompanionRoguelike.Combat;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Character
@@ -9,6 +10,7 @@ namespace AICompanionRoguelike.Character
     {
         [Header("References")]
         [SerializeField] private PlayerInputReader inputReader;
+        [SerializeField] private HealthComponent health;
 
         [Header("Move")]
         [SerializeField, Min(0f)] private float moveSpeed = 7f;
@@ -50,6 +52,7 @@ namespace AICompanionRoguelike.Character
         private void Reset()
         {
             inputReader = GetComponent<PlayerInputReader>();
+            health = GetComponent<HealthComponent>();
 
             Rigidbody2D rigidbody2D = GetComponent<Rigidbody2D>();
             rigidbody2D.gravityScale = 4f;
@@ -60,8 +63,25 @@ namespace AICompanionRoguelike.Character
         {
             body = GetComponent<Rigidbody2D>();
             inputReader = inputReader != null ? inputReader : GetComponent<PlayerInputReader>();
+            health = health != null ? health : GetComponent<HealthComponent>();
             defaultGravityScale = body.gravityScale;
             ConfigureGroundFilter();
+        }
+
+        private void OnEnable()
+        {
+            if (health != null)
+            {
+                health.Died += HandleDeath;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (health != null)
+            {
+                health.Died -= HandleDeath;
+            }
         }
 
         private void OnValidate()
@@ -71,8 +91,15 @@ namespace AICompanionRoguelike.Character
 
         private void FixedUpdate()
         {
-            UpdateTimers();
             UpdateGroundedState();
+
+            if (health != null && health.IsDead)
+            {
+                LockDeadMovement();
+                return;
+            }
+
+            UpdateTimers();
 
             if (inputReader == null)
             {
@@ -214,6 +241,33 @@ namespace AICompanionRoguelike.Character
 
             velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
             body.linearVelocity = velocity;
+        }
+
+        private void HandleDeath(HealthComponent deadHealth, DamageInfo damageInfo)
+        {
+            LockDeadMovement();
+        }
+
+        private void LockDeadMovement()
+        {
+            if (body == null)
+            {
+                return;
+            }
+
+            bool wasDashing = IsDashing;
+            IsDashing = false;
+            IsInvincible = false;
+            dashTimer = 0f;
+            dashCooldownTimer = 0f;
+            invincibilityTimer = 0f;
+            body.gravityScale = defaultGravityScale;
+            body.linearVelocity = new Vector2(0f, body.linearVelocity.y);
+
+            if (wasDashing)
+            {
+                DashEnded?.Invoke();
+            }
         }
 
         private void OnDrawGizmosSelected()

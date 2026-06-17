@@ -9,6 +9,7 @@ namespace AICompanionRoguelike.Combat
         [Header("References")]
         [SerializeField] private PlayerInputReader inputReader;
         [SerializeField] private PlayerMovement2D movement;
+        [SerializeField] private HealthComponent health;
         [SerializeField] private Transform attackOrigin;
 
         [Header("Attack")]
@@ -26,6 +27,7 @@ namespace AICompanionRoguelike.Combat
         {
             inputReader = GetComponent<PlayerInputReader>();
             movement = GetComponent<PlayerMovement2D>();
+            health = GetComponent<HealthComponent>();
             attackOrigin = transform;
         }
 
@@ -33,6 +35,7 @@ namespace AICompanionRoguelike.Combat
         {
             inputReader = inputReader != null ? inputReader : GetComponent<PlayerInputReader>();
             movement = movement != null ? movement : GetComponent<PlayerMovement2D>();
+            health = health != null ? health : GetComponent<HealthComponent>();
             attackOrigin = attackOrigin != null ? attackOrigin : transform;
             body = GetComponent<Rigidbody2D>();
         }
@@ -42,6 +45,11 @@ namespace AICompanionRoguelike.Combat
             if (cooldownTimer > 0f)
             {
                 cooldownTimer -= Time.deltaTime;
+            }
+
+            if (health != null && health.IsDead)
+            {
+                return;
             }
 
             if (inputReader == null || !inputReader.ConsumeAttackPressed() || cooldownTimer > 0f)
