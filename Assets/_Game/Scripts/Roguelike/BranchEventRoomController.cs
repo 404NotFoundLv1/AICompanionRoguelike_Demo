@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using AICompanionRoguelike.Companion;
+using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
+using AICompanionRoguelike.Memory;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -14,6 +16,7 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private Transform player;
         [SerializeField] private Transform companion;
         [SerializeField] private Camera branchCamera;
+        [SerializeField] private CompanionRelationship companionRelationship;
 
         [Header("Choices")]
         [SerializeField] private Key rescueKey = Key.Digit1;
@@ -32,6 +35,19 @@ namespace AICompanionRoguelike.Roguelike
         [Header("Previous Room")]
         [SerializeField] private bool freezePreviousRoomDuringChoice = true;
 
+        [Header("Choice Outcomes")]
+        [SerializeField, Range(0f, 1f)] private float rescueHealthPercent = 0.35f;
+        [SerializeField] private int rescueTrustDelta = 8;
+        [SerializeField] private int rescueAffectionDelta = 6;
+        [SerializeField] private int leaveTrustDelta = -12;
+        [SerializeField] private int leaveAffectionDelta = -10;
+        [SerializeField, Min(0f)] private float challengeBuffDuration = 8f;
+        [SerializeField, Min(0f)] private float challengeOutgoingDamageMultiplier = 1.5f;
+        [SerializeField, Min(0f)] private float challengeIncomingDamageMultiplier = 0.7f;
+        [SerializeField] private int challengeTrustDelta = 3;
+        [SerializeField] private int challengeAffectionDelta = 1;
+        [SerializeField] private bool quitGameOnLeave = true;
+
         private readonly List<BehaviourState> frozenBehaviours = new List<BehaviourState>(16);
         private readonly List<RigidbodyState> frozenRigidbodies = new List<RigidbodyState>(8);
 
@@ -43,12 +59,18 @@ namespace AICompanionRoguelike.Roguelike
         private Vector2 playerReturnVelocity;
         private Vector3 cameraReturnPosition;
         private Quaternion cameraReturnRotation;
+        private HealthComponent playerHealth;
+        private PlayerBranchChoiceBuff playerBranchChoiceBuff;
+        private BranchEventChoice lastSelectedChoice;
+        private string lastOutcomeDescription;
 
         public event Action<BranchEventRoomController, BranchEventChoice> ChoiceSelected;
 
         public bool IsWaitingForChoice => isWaitingForChoice;
         public bool PlayerIsInBranchRoom => playerIsInBranchRoom;
         public bool PreviousRoomIsFrozen => previousRoomIsFrozen;
+        public BranchEventChoice LastSelectedChoice => lastSelectedChoice;
+        public string LastOutcomeDescription => lastOutcomeDescription;
 
         private void Awake()
         {
@@ -130,10 +152,18 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             ChoiceSelected?.Invoke(this, choice);
+            lastSelectedChoice = choice;
+            ApplyChoiceOutcome(choice);
 
             if (logChoices)
             {
-                Debug.Log($"BranchEventRoom choice selected: {choice}. Returning to the preserved combat room.", this);
+                Debug.Log($"BranchEventRoom choice selected: {choice}. {lastOutcomeDescription}", this);
+            }
+
+            if (choice == BranchEventChoice.Leave && quitGameOnLeave)
+            {
+                QuitGameForNow();
+                return;
             }
 
             ReturnFromBranchRoom();
@@ -144,6 +174,7 @@ namespace AICompanionRoguelike.Roguelike
             roomManager = roomManager != null ? roomManager : GetComponent<RoomManager>();
             branchCamera = branchCamera != null ? branchCamera : Camera.main;
             ResolveParticipants();
+            ResolveOutcomeReferences();
         }
 
         private void ResolveParticipants()
@@ -158,6 +189,22 @@ namespace AICompanionRoguelike.Roguelike
             {
                 GameObject companionObject = GameObject.Find("Companion");
                 companion = companionObject != null ? companionObject.transform : null;
+            }
+        }
+
+        private void ResolveOutcomeReferences()
+        {
+            playerHealth = player != null ? player.GetComponent<HealthComponent>() : null;
+            playerBranchChoiceBuff = player != null ? player.GetComponent<PlayerBranchChoiceBuff>() : null;
+
+            if (player != null && playerBranchChoiceBuff == null)
+            {
+                playerBranchChoiceBuff = player.gameObject.AddComponent<PlayerBranchChoiceBuff>();
+            }
+
+            if (companionRelationship == null)
+            {
+                companionRelationship = FindAnyObjectByType<CompanionRelationship>();
             }
         }
 
@@ -341,6 +388,101 @@ namespace AICompanionRoguelike.Roguelike
             RestorePreviousRoom();
         }
 
+        private void ApplyChoiceOutcome(BranchEventChoice choice)
+        {
+            ResolveOutcomeReferences();
+
+            switch (choice)
+            {
+                case BranchEventChoice.Rescue:
+                    ApplyRescueOutcome();
+                    break;
+                case BranchEventChoice.Leave:
+                    ApplyLeaveOutcome();
+                    break;
+                case BranchEventChoice.Challenge:
+                    ApplyChallengeOutcome();
+                    break;
+            }
+        }
+
+        private void ApplyRescueOutcome()
+        {
+            float targetHealth = playerHealth != null ? playerHealth.MaxHealth * rescueHealthPercent : 0f;
+            float healedAmount = 0f;
+
+            if (playerHealth != null && !playerHealth.IsDead && playerHealth.CurrentHealth < targetHealth)
+            {
+                healedAmount = targetHealth - playerHealth.CurrentHealth;
+                playerHealth.Heal(healedAmount);
+            }
+
+            ApplyRelationshipMemory(
+                "BranchRescue",
+                rescueTrustDelta,
+                rescueAffectionDelta,
+                RelationshipMemoryTag.Protected);
+
+            lastOutcomeDescription =
+                $"Rescue restored {healedAmount:0.#} HP and strengthened the companion bond. Returning to the preserved combat room.";
+        }
+
+        private void ApplyLeaveOutcome()
+        {
+            ApplyRelationshipMemory(
+                "BranchLeave",
+                leaveTrustDelta,
+                leaveAffectionDelta,
+                RelationshipMemoryTag.Abandoned);
+
+            lastOutcomeDescription = "Leave recorded an abandoned memory. Home is not implemented yet, so the game will quit.";
+        }
+
+        private void ApplyChallengeOutcome()
+        {
+            if (playerBranchChoiceBuff != null)
+            {
+                playerBranchChoiceBuff.Activate(
+                    challengeBuffDuration,
+                    challengeOutgoingDamageMultiplier,
+                    challengeIncomingDamageMultiplier);
+            }
+
+            ApplyRelationshipMemory(
+                "BranchChallenge",
+                challengeTrustDelta,
+                challengeAffectionDelta,
+                RelationshipMemoryTag.Brave);
+
+            lastOutcomeDescription =
+                $"Challenge keeps the player near death but grants {challengeBuffDuration:0.#}s combat boost. Returning to the preserved combat room.";
+        }
+
+        private void ApplyRelationshipMemory(
+            string sourceLabel,
+            int trustDelta,
+            int affectionDelta,
+            RelationshipMemoryTag memoryTag)
+        {
+            if (companionRelationship == null)
+            {
+                return;
+            }
+
+            companionRelationship.ApplyMemoryEvent(sourceLabel, trustDelta, affectionDelta, memoryTag);
+        }
+
+        private void QuitGameForNow()
+        {
+            Debug.Log("Leave selected: home system is not implemented yet, quitting the game for now.", this);
+
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
         private static void MoveTransform(Transform target, Vector3 position, Vector2 velocity)
         {
             Rigidbody2D body = target.GetComponent<Rigidbody2D>();
@@ -373,20 +515,20 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.BeginArea(panelRect, GUI.skin.box);
             GUILayout.Label("Branch Event Room");
             GUILayout.Space(8f);
-            GUILayout.Label("The previous combat room is frozen. Choose how to return.");
+            GUILayout.Label("The previous combat room is frozen. Choose the consequence.");
             GUILayout.Space(12f);
 
-            if (GUILayout.Button($"[{rescueKey}] Rescue"))
+            if (GUILayout.Button($"[{rescueKey}] Rescue - heal and strengthen bond"))
             {
                 SelectChoice(BranchEventChoice.Rescue);
             }
 
-            if (GUILayout.Button($"[{leaveKey}] Leave"))
+            if (GUILayout.Button($"[{leaveKey}] Leave - quit for now"))
             {
                 SelectChoice(BranchEventChoice.Leave);
             }
 
-            if (GUILayout.Button($"[{challengeKey}] Challenge"))
+            if (GUILayout.Button($"[{challengeKey}] Challenge - return with combat boost"))
             {
                 SelectChoice(BranchEventChoice.Challenge);
             }

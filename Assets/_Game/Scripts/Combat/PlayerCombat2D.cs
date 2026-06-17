@@ -10,6 +10,7 @@ namespace AICompanionRoguelike.Combat
         [SerializeField] private PlayerInputReader inputReader;
         [SerializeField] private PlayerMovement2D movement;
         [SerializeField] private HealthComponent health;
+        [SerializeField] private PlayerBranchChoiceBuff branchChoiceBuff;
         [SerializeField] private Transform attackOrigin;
 
         [Header("Attack")]
@@ -28,6 +29,7 @@ namespace AICompanionRoguelike.Combat
             inputReader = GetComponent<PlayerInputReader>();
             movement = GetComponent<PlayerMovement2D>();
             health = GetComponent<HealthComponent>();
+            branchChoiceBuff = GetComponent<PlayerBranchChoiceBuff>();
             attackOrigin = transform;
         }
 
@@ -36,6 +38,7 @@ namespace AICompanionRoguelike.Combat
             inputReader = inputReader != null ? inputReader : GetComponent<PlayerInputReader>();
             movement = movement != null ? movement : GetComponent<PlayerMovement2D>();
             health = health != null ? health : GetComponent<HealthComponent>();
+            branchChoiceBuff = branchChoiceBuff != null ? branchChoiceBuff : GetComponent<PlayerBranchChoiceBuff>();
             attackOrigin = attackOrigin != null ? attackOrigin : transform;
             body = GetComponent<Rigidbody2D>();
         }
@@ -72,7 +75,9 @@ namespace AICompanionRoguelike.Combat
                 useTriggers = false
             };
             int hitCount = Physics2D.OverlapBox(center, attackBoxSize, 0f, targetFilter, hitBuffer);
-            DamageInfo damageInfo = new DamageInfo(damage, DamageSourceType.Player, gameObject);
+            branchChoiceBuff = branchChoiceBuff != null ? branchChoiceBuff : GetComponent<PlayerBranchChoiceBuff>();
+            float outgoingMultiplier = branchChoiceBuff != null ? branchChoiceBuff.OutgoingDamageMultiplier : 1f;
+            DamageInfo damageInfo = new DamageInfo(damage * outgoingMultiplier, DamageSourceType.Player, gameObject);
 
             for (int i = 0; i < hitCount; i++)
             {

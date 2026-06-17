@@ -9,7 +9,10 @@ namespace AICompanionRoguelike.Memory
     {
         Reliable,
         Cold,
-        Stubborn
+        Stubborn,
+        Protected,
+        Abandoned,
+        Brave
     }
 
     [Serializable]
@@ -22,6 +25,7 @@ namespace AICompanionRoguelike.Memory
     public readonly struct RelationshipChange
     {
         public readonly QTEResultType sourceResult;
+        public readonly string sourceLabel;
         public readonly int trustDelta;
         public readonly int affectionDelta;
         public readonly int previousTrust;
@@ -41,6 +45,28 @@ namespace AICompanionRoguelike.Memory
             RelationshipMemoryTag memoryTag)
         {
             this.sourceResult = sourceResult;
+            sourceLabel = sourceResult.ToString();
+            this.trustDelta = trustDelta;
+            this.affectionDelta = affectionDelta;
+            this.previousTrust = previousTrust;
+            this.previousAffection = previousAffection;
+            this.currentTrust = currentTrust;
+            this.currentAffection = currentAffection;
+            this.memoryTag = memoryTag;
+        }
+
+        public RelationshipChange(
+            string sourceLabel,
+            int trustDelta,
+            int affectionDelta,
+            int previousTrust,
+            int previousAffection,
+            int currentTrust,
+            int currentAffection,
+            RelationshipMemoryTag memoryTag)
+        {
+            sourceResult = default(QTEResultType);
+            this.sourceLabel = sourceLabel;
             this.trustDelta = trustDelta;
             this.affectionDelta = affectionDelta;
             this.previousTrust = previousTrust;
@@ -146,6 +172,11 @@ namespace AICompanionRoguelike.Memory
             ApplyRelationshipChange(resultType, trustDelta, affectionDelta, memoryTag);
         }
 
+        public void ApplyMemoryEvent(string sourceLabel, int trustDelta, int affectionDelta, RelationshipMemoryTag memoryTag)
+        {
+            ApplyRelationshipChange(sourceLabel, trustDelta, affectionDelta, memoryTag);
+        }
+
         public int GetMemoryTagScore(RelationshipMemoryTag tag)
         {
             int index = FindMemoryTagIndex(tag);
@@ -187,6 +218,40 @@ namespace AICompanionRoguelike.Memory
         }
 
         private void ApplyRelationshipChange(
+            string sourceLabel,
+            int trustDelta,
+            int affectionDelta,
+            RelationshipMemoryTag memoryTag)
+        {
+            int previousTrust = trust;
+            int previousAffection = affection;
+
+            trust = ClampRelationshipValue(trust + trustDelta);
+            affection = ClampRelationshipValue(affection + affectionDelta);
+            AddMemoryTagScore(memoryTag, 1);
+
+            RelationshipChange change = new RelationshipChange(
+                sourceLabel,
+                trust - previousTrust,
+                affection - previousAffection,
+                previousTrust,
+                previousAffection,
+                trust,
+                affection,
+                memoryTag);
+
+            RelationshipChanged?.Invoke(this, change);
+            AnyRelationshipChanged?.Invoke(this, change);
+
+            if (logRelationshipChanges)
+            {
+                Debug.Log(
+                    $"Companion relationship changed by {change.sourceLabel}: Trust {previousTrust}->{trust} ({change.trustDelta:+#;-#;0}), Affection {previousAffection}->{affection} ({change.affectionDelta:+#;-#;0}), Tag {memoryTag}={GetMemoryTagScore(memoryTag)}",
+                    this);
+            }
+        }
+
+        private void ApplyRelationshipChange(
             QTEResultType sourceResult,
             int trustDelta,
             int affectionDelta,
@@ -215,7 +280,7 @@ namespace AICompanionRoguelike.Memory
             if (logRelationshipChanges)
             {
                 Debug.Log(
-                    $"Companion relationship changed by {sourceResult}: Trust {previousTrust}->{trust} ({change.trustDelta:+#;-#;0}), Affection {previousAffection}->{affection} ({change.affectionDelta:+#;-#;0}), Tag {memoryTag}={GetMemoryTagScore(memoryTag)}",
+                    $"Companion relationship changed by {change.sourceLabel}: Trust {previousTrust}->{trust} ({change.trustDelta:+#;-#;0}), Affection {previousAffection}->{affection} ({change.affectionDelta:+#;-#;0}), Tag {memoryTag}={GetMemoryTagScore(memoryTag)}",
                     this);
             }
         }
