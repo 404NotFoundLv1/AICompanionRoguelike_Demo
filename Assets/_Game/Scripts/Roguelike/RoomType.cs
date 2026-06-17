@@ -5,6 +5,7 @@ namespace AICompanionRoguelike.Roguelike
         BattleRoom,
         SafeRoom,
         ShopRoom,
-        EliteRoom
+        EliteRoom,
+        BranchEventRoom
     }
 }

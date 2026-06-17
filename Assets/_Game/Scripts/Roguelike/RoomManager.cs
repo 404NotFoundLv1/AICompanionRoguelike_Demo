@@ -35,6 +35,7 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsRoomActive { get; private set; }
         public bool IsRoomCleared { get; private set; }
         public int RemainingEnemyCount => activeEnemies.Count;
+        public IReadOnlyList<EnemyController2D> ActiveEnemies => activeEnemies;
 
         private void Awake()
         {
@@ -74,7 +75,7 @@ namespace AICompanionRoguelike.Roguelike
 
             RoomStarted?.Invoke(this, CurrentRoomType, CurrentRoomNumber);
 
-            if (activeEnemies.Count == 0)
+            if (activeEnemies.Count == 0 && CurrentRoomType != RoomType.BranchEventRoom)
             {
                 ClearRoom();
             }
@@ -105,6 +106,7 @@ namespace AICompanionRoguelike.Roguelike
                 EnemyController2D enemy = activeEnemies[i];
                 if (enemy != null)
                 {
+                    enemy.gameObject.SetActive(false);
                     Destroy(enemy.gameObject);
                 }
             }
@@ -217,6 +219,7 @@ namespace AICompanionRoguelike.Roguelike
                 EnemyController2D enemy = activeEnemies[i];
                 if (enemy != null)
                 {
+                    enemy.gameObject.SetActive(false);
                     Destroy(enemy.gameObject);
                 }
             }
@@ -230,7 +233,9 @@ namespace AICompanionRoguelike.Roguelike
 
             for (int i = enemyContainer.childCount - 1; i >= 0; i--)
             {
-                Destroy(enemyContainer.GetChild(i).gameObject);
+                GameObject child = enemyContainer.GetChild(i).gameObject;
+                child.SetActive(false);
+                Destroy(child);
             }
         }
     }

@@ -9,6 +9,7 @@ namespace AICompanionRoguelike.Roguelike
     {
         [Header("References")]
         [SerializeField] private RoomManager roomManager;
+        [SerializeField] private BranchEventRoomController branchEventRoomController;
 
         [Header("Run Flow")]
         [SerializeField] private bool startRunOnStart = true;
@@ -28,6 +29,8 @@ namespace AICompanionRoguelike.Roguelike
         private int roomIndex = -1;
         private bool waitingForNextRoom;
 
+        public static event Action<RunManager> AnyRunStarted;
+        public event Action<RunManager> RunStarted;
         public event Action<RunManager, RoomType, int> RoomAdvanced;
 
         public int CurrentRoomNumber => Mathf.Max(0, roomIndex + 1);
@@ -37,11 +40,13 @@ namespace AICompanionRoguelike.Roguelike
         private void Reset()
         {
             roomManager = GetComponent<RoomManager>();
+            branchEventRoomController = GetComponent<BranchEventRoomController>();
         }
 
         private void Awake()
         {
             roomManager = roomManager != null ? roomManager : GetComponent<RoomManager>();
+            branchEventRoomController = branchEventRoomController != null ? branchEventRoomController : GetComponent<BranchEventRoomController>();
         }
 
         private void OnEnable()
@@ -88,6 +93,8 @@ namespace AICompanionRoguelike.Roguelike
                 Debug.Log("Run started.", this);
             }
 
+            RunStarted?.Invoke(this);
+            AnyRunStarted?.Invoke(this);
             AdvanceToNextRoom();
         }
 
@@ -111,6 +118,23 @@ namespace AICompanionRoguelike.Roguelike
             if (logRunMessages)
             {
                 Debug.Log($"Advanced to room #{roomNumber}: {nextRoomType}", this);
+            }
+        }
+
+        public void EnterBranchEventRoom()
+        {
+            if (branchEventRoomController == null)
+            {
+                Debug.LogWarning("RunManager cannot enter BranchEventRoom because BranchEventRoomController is missing.", this);
+                return;
+            }
+
+            waitingForNextRoom = false;
+            branchEventRoomController.BeginBranchEventRoom(CurrentRoomNumber, CurrentRoomType);
+
+            if (logRunMessages)
+            {
+                Debug.Log($"Entered BranchEventRoom from {CurrentRoomType} #{CurrentRoomNumber}.", this);
             }
         }
 
