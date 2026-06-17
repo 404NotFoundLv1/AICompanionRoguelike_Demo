@@ -18,6 +18,8 @@ namespace AICompanionRoguelike.Character
         [SerializeField] private Key jumpKey = Key.Space;
         [SerializeField] private Key dashKey = Key.LeftShift;
         [SerializeField] private Key alternateDashKey = Key.RightShift;
+        [SerializeField] private Key attackKey = Key.J;
+        [SerializeField] private Key alternateAttackKey = Key.K;
 
         [Header("Gamepad")]
         [SerializeField] private bool readGamepad = true;
@@ -25,6 +27,7 @@ namespace AICompanionRoguelike.Character
 
         private bool jumpQueued;
         private bool dashQueued;
+        private bool attackQueued;
 
         public float MoveInput { get; private set; }
         public bool JumpHeld { get; private set; }
@@ -35,6 +38,7 @@ namespace AICompanionRoguelike.Character
             JumpHeld = false;
             jumpQueued = false;
             dashQueued = false;
+            attackQueued = false;
         }
 
         private void Update()
@@ -66,6 +70,17 @@ namespace AICompanionRoguelike.Character
             }
 
             dashQueued = false;
+            return true;
+        }
+
+        public bool ConsumeAttackPressed()
+        {
+            if (!attackQueued)
+            {
+                return false;
+            }
+
+            attackQueued = false;
             return true;
         }
 
@@ -102,6 +117,11 @@ namespace AICompanionRoguelike.Character
             {
                 dashQueued = true;
             }
+
+            if (WasPressedThisFrame(keyboard, attackKey) || WasPressedThisFrame(keyboard, alternateAttackKey))
+            {
+                attackQueued = true;
+            }
         }
 
         private void ReadGamepad()
@@ -128,6 +148,11 @@ namespace AICompanionRoguelike.Character
             if (gamepad.buttonEast.wasPressedThisFrame || gamepad.rightShoulder.wasPressedThisFrame)
             {
                 dashQueued = true;
+            }
+
+            if (gamepad.buttonWest.wasPressedThisFrame || gamepad.rightTrigger.wasPressedThisFrame)
+            {
+                attackQueued = true;
             }
         }
 
