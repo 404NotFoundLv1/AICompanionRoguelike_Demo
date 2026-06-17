@@ -198,6 +198,7 @@ GameObject:
   - component: {fileID: 6491381277807973212}
   - component: {fileID: 1239752055737523404}
   - component: {fileID: 8955393007223271357}
+  - component: {fileID: 5807200914382200006}
   m_Layer: 9
   m_Name: DummyEnemy
   m_TagString: Untagged
@@ -425,6 +426,20 @@ MonoBehaviour:
   hideWhenFull: 0
   backgroundColor: {r: 0.04, g: 0.04, b: 0.04, a: 0.9}
   fillColor: {r: 1, g: 0.18, b: 0.18, a: 1}
+--- !u!114 &5807200914382200006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3209252624947422616}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45a8d9d81b6d34449b523a5ec530ae82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Enemy.CompanionKillProtection
+  minimumHealthPercent: 0.2
+  logFinisherRequest: 1
 --- !u!1 &8009499261804439974
 GameObject:
   m_ObjectHideFlags: 0

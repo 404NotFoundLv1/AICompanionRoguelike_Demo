@@ -72,12 +72,14 @@ namespace AICompanionRoguelike.Companion
         private void Attack(HealthComponent targetHealth)
         {
             DamageInfo damageInfo = new DamageInfo(damage, DamageSourceType.Companion, gameObject);
+            float previousHealth = targetHealth.CurrentHealth;
             targetHealth.TakeDamage(damageInfo);
+            float appliedDamage = Mathf.Max(0f, previousHealth - targetHealth.CurrentHealth);
             cooldownTimer = cooldown;
 
-            if (movement != null && targetHealth != null)
+            if (movement != null && targetHealth != null && appliedDamage > 0f)
             {
-                Debug.Log($"Companion attacked {targetHealth.name} for {damageInfo.damage} damage. Target HP: {targetHealth.CurrentHealth}/{targetHealth.MaxHealth}", targetHealth);
+                Debug.Log($"Companion attacked {targetHealth.name} for {appliedDamage} damage. Target HP: {targetHealth.CurrentHealth}/{targetHealth.MaxHealth}", targetHealth);
             }
         }
 

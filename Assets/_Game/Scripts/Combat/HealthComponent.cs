@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Combat
@@ -10,6 +11,7 @@ namespace AICompanionRoguelike.Combat
 
         private float currentHealth;
         private bool isDead;
+        private readonly List<MonoBehaviour> damageModifierBehaviours = new List<MonoBehaviour>(4);
 
         public event Action<HealthComponent, DamageInfo> Damaged;
         public event Action<HealthComponent, float> Healed;
@@ -53,7 +55,13 @@ namespace AICompanionRoguelike.Combat
 
         public void TakeDamage(DamageInfo damageInfo)
         {
-            if (isDead || damageInfo.damage <= 0f)
+            if (isDead)
+            {
+                return;
+            }
+
+            damageInfo = ApplyDamageModifiers(damageInfo);
+            if (damageInfo.damage <= 0f)
             {
                 return;
             }
@@ -65,6 +73,31 @@ namespace AICompanionRoguelike.Combat
             {
                 Die(damageInfo);
             }
+        }
+
+        private DamageInfo ApplyDamageModifiers(DamageInfo damageInfo)
+        {
+            GetComponents(damageModifierBehaviours);
+
+            for (int i = 0; i < damageModifierBehaviours.Count; i++)
+            {
+                MonoBehaviour behaviour = damageModifierBehaviours[i];
+                if (behaviour == null || !behaviour.isActiveAndEnabled || behaviour is not IDamageModifier damageModifier)
+                {
+                    continue;
+                }
+
+                damageInfo = damageModifier.ModifyIncomingDamage(this, damageInfo);
+                damageInfo.damage = Mathf.Max(0f, damageInfo.damage);
+
+                if (damageInfo.damage <= 0f)
+                {
+                    break;
+                }
+            }
+
+            damageModifierBehaviours.Clear();
+            return damageInfo;
         }
 
         public void Heal(float amount)
