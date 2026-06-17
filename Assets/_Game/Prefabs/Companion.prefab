@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 699181438482740380}
   - component: {fileID: 403165230550561590}
   - component: {fileID: 94474441761851470}
+  - component: {fileID: 3088733922607995374}
   m_Layer: 10
   m_Name: Companion
   m_TagString: Untagged
@@ -245,3 +246,21 @@ MonoBehaviour:
   damage: 12
   cooldown: 0.85
   attackRange: 2.8
+--- !u!114 &3088733922607995374
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729427289006278405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 159090b91e1035b4ca75d08270fb13fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionQTERequester
+  qteManager: {fileID: 0}
+  qteDuration: 2
+  requestCooldown: 3
+  expectedKey: 19
+  promptTemplate: Press {0} to answer companion's finisher call on {1}
+  logResults: 1
