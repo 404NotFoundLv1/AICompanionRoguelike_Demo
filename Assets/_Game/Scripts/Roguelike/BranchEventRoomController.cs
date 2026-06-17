@@ -151,9 +151,9 @@ namespace AICompanionRoguelike.Roguelike
                 return;
             }
 
-            ChoiceSelected?.Invoke(this, choice);
             lastSelectedChoice = choice;
             ApplyChoiceOutcome(choice);
+            ChoiceSelected?.Invoke(this, choice);
 
             if (logChoices)
             {

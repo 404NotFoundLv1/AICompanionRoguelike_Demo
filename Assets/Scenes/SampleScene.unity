@@ -133,7 +133,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d30f70a8d704d20488d81440634357de, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Memory.CompanionRelationship
 --- !u!1 &519420028
 GameObject:
@@ -172,7 +172,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -585,6 +585,7 @@ MonoBehaviour:
   player: {fileID: 1337357273}
   companion: {fileID: 313638954}
   branchCamera: {fileID: 519420031}
+  companionRelationship: {fileID: 313638958}
   rescueKey: 41
   leaveKey: 42
   challengeKey: 43
@@ -594,6 +595,17 @@ MonoBehaviour:
   followPlayerInBranchRoom: 1
   branchRoomCameraOffset: {x: 0, y: 1.15, z: -10}
   freezePreviousRoomDuringChoice: 1
+  rescueHealthPercent: 0.35
+  rescueTrustDelta: 8
+  rescueAffectionDelta: 6
+  leaveTrustDelta: -12
+  leaveAffectionDelta: -10
+  challengeBuffDuration: 8
+  challengeOutgoingDamageMultiplier: 1.5
+  challengeIncomingDamageMultiplier: 0.7
+  challengeTrustDelta: 3
+  challengeAffectionDelta: 1
+  quitGameOnLeave: 1
 --- !u!1 &864806902
 GameObject:
   m_ObjectHideFlags: 0
@@ -749,6 +761,63 @@ Transform:
   - {fileID: 1086982078}
   m_Father: {fileID: 1337357273}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1302422682
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1302422684}
+  - component: {fileID: 1302422683}
+  m_Layer: 0
+  m_Name: StatusFeedbackUI
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1302422683
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302422682}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8dc0cbb6d18963646b6ced6f141386a3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.StatusFeedbackUI
+  playerHealth: {fileID: 1337357274}
+  branchChoiceBuff: {fileID: 1337357278}
+  companionRelationship: {fileID: 313638958}
+  branchEventRoomController: {fileID: 736547108}
+  panelRect:
+    serializedVersion: 2
+    x: 16
+    y: 16
+    width: 330
+    height: 210
+  toastDuration: 3
+  showPanel: 1
+  showToast: 1
+--- !u!4 &1302422684
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302422682}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1337357267
 GameObject:
   m_ObjectHideFlags: 0
@@ -767,6 +836,7 @@ GameObject:
   - component: {fileID: 1337357274}
   - component: {fileID: 1337357276}
   - component: {fileID: 1337357277}
+  - component: {fileID: 1337357278}
   m_Layer: 11
   m_Name: Player
   m_TagString: Untagged
@@ -1001,6 +1071,7 @@ MonoBehaviour:
   inputReader: {fileID: 1337357269}
   movement: {fileID: 1337357268}
   health: {fileID: 1337357274}
+  branchChoiceBuff: {fileID: 1337357278}
   attackOrigin: {fileID: 1337357273}
   damage: 35
   cooldown: 0.35
@@ -1051,6 +1122,22 @@ MonoBehaviour:
   rescueHealth: 1
   enterBranchEventRoomOnRescue: 1
   logRescue: 1
+--- !u!114 &1337357278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1337357267}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b551f34f92ebc4c4c8e2ce61c8711b9e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerBranchChoiceBuff
+  remainingDuration: 0
+  outgoingDamageMultiplier: 1
+  incomingDamageMultiplier: 1
+  logBuffChanges: 1
 --- !u!1 &1476872031
 GameObject:
   m_ObjectHideFlags: 0
@@ -1436,3 +1523,4 @@ SceneRoots:
   - {fileID: 1845329743}
   - {fileID: 736547107}
   - {fileID: 2028511218}
+  - {fileID: 1302422684}
