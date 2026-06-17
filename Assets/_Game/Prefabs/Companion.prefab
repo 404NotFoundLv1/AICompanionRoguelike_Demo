@@ -14,6 +14,8 @@ GameObject:
   - component: {fileID: 7418576890309500877}
   - component: {fileID: 412880269119498064}
   - component: {fileID: 699181438482740380}
+  - component: {fileID: 403165230550561590}
+  - component: {fileID: 94474441761851470}
   m_Layer: 10
   m_Name: Companion
   m_TagString: Untagged
@@ -206,3 +208,40 @@ MonoBehaviour:
   groundLayerMask:
     serializedVersion: 2
     m_Bits: 256
+--- !u!114 &403165230550561590
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729427289006278405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 170eeb590e44c614bafde3ac7e18418b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionSensor
+  ownerHealth: {fileID: 412880269119498064}
+  detectionRadius: 4.5
+  scanInterval: 0.15
+  enemyLayerMask:
+    serializedVersion: 2
+    m_Bits: 512
+--- !u!114 &94474441761851470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729427289006278405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd152271daddc8d479d07ec7fa45e063, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionCombat
+  sensor: {fileID: 403165230550561590}
+  movement: {fileID: 699181438482740380}
+  health: {fileID: 412880269119498064}
+  attackOrigin: {fileID: 5114151113306494023}
+  damage: 12
+  cooldown: 0.85
+  attackRange: 2.8
