@@ -39,6 +39,14 @@ namespace AICompanionRoguelike.Roguelike
             RoomType.EliteRoom
         };
 
+        [Header("Run Completion")]
+        [SerializeField] private bool useRunCompletion = true;
+        [SerializeField, Min(1)] private int roomsToCompleteRun = 3;
+        [SerializeField] private string homeScenePath = "Assets/_Game/Scenes/HomeScene.unity";
+        [SerializeField] private Key completionReturnHomeKey = Key.E;
+        [SerializeField] private bool showCompletionPanel = true;
+        [SerializeField] private Rect completionPanelRect = new Rect(0f, 92f, 500f, 220f);
+
         [Header("Rewards")]
         [SerializeField] private bool useRoomRewards = true;
         [SerializeField, Min(1)] private int rewardChoiceCount = 3;
@@ -62,6 +70,7 @@ namespace AICompanionRoguelike.Roguelike
         private int roomIndex = -1;
         private bool waitingForNextRoom;
         private bool waitingForReward;
+        private bool runCompleted;
         private readonly List<RoomType> currentRoomChoices = new List<RoomType>(4);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
 
@@ -78,6 +87,8 @@ namespace AICompanionRoguelike.Roguelike
         public RoomType CurrentRoomType => roomManager != null ? roomManager.CurrentRoomType : RoomType.BattleRoom;
         public bool IsWaitingForNextRoom => waitingForNextRoom;
         public bool IsWaitingForReward => waitingForReward;
+        public bool IsRunCompleted => runCompleted;
+        public int RoomsToCompleteRun => roomsToCompleteRun;
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
 
@@ -111,6 +122,16 @@ namespace AICompanionRoguelike.Roguelike
 
         private void Update()
         {
+            if (runCompleted)
+            {
+                if (WasCompletionReturnHomePressed())
+                {
+                    ReturnHomeAfterCompletion();
+                }
+
+                return;
+            }
+
             if (!allowDebugNextRoomKey || !waitingForNextRoom || !WasNextRoomPressed())
             {
                 return;
@@ -133,6 +154,7 @@ namespace AICompanionRoguelike.Roguelike
             roomIndex = -1;
             waitingForNextRoom = false;
             waitingForReward = false;
+            runCompleted = false;
             ClearRewardChoices();
             ClearPreparedRoomChoices();
 
@@ -235,15 +257,24 @@ namespace AICompanionRoguelike.Roguelike
         private void HandleRoomCleared(RoomManager clearedRoomManager, RoomType roomType, int roomNumber)
         {
             waitingForNextRoom = false;
+            RunSessionState.RecordRoomCleared(roomType, roomNumber);
 
             if (logRunMessages)
             {
-                string message = ShouldOfferReward(roomType)
+                string message = ShouldCompleteRun(roomNumber)
+                    ? $"Room #{roomNumber} cleared. Run complete."
+                    : ShouldOfferReward(roomType)
                     ? $"Room #{roomNumber} cleared. Choose a reward before selecting the next route."
                     : (useRoomChoicePortal
                         ? $"Room #{roomNumber} cleared. Find the next-room portal to choose a route."
                         : $"Room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.");
                 Debug.Log(message, this);
+            }
+
+            if (ShouldCompleteRun(roomNumber))
+            {
+                CompleteRun(roomType, roomNumber);
+                return;
             }
 
             if (ShouldOfferReward(roomType))
@@ -264,6 +295,7 @@ namespace AICompanionRoguelike.Roguelike
 
             RunRewardChoice reward = currentRewardChoices[index];
             ApplyReward(reward.RewardType);
+            RunSessionState.RecordRewardSelected(reward.Title);
             waitingForReward = false;
             ClearRewardChoices();
 
@@ -278,6 +310,11 @@ namespace AICompanionRoguelike.Roguelike
 
         private void BeginNextRoomChoiceFlow()
         {
+            if (runCompleted)
+            {
+                return;
+            }
+
             waitingForNextRoom = true;
 
             if (useRoomChoicePortal)
@@ -292,9 +329,59 @@ namespace AICompanionRoguelike.Roguelike
             return keyboard != null && nextRoomKey != Key.None && keyboard[nextRoomKey].wasPressedThisFrame;
         }
 
+        private bool WasCompletionReturnHomePressed()
+        {
+            Keyboard keyboard = Keyboard.current;
+            return keyboard != null
+                && completionReturnHomeKey != Key.None
+                && keyboard[completionReturnHomeKey].wasPressedThisFrame;
+        }
+
         private bool ShouldOfferReward(RoomType roomType)
         {
-            return useRoomRewards && (roomType == RoomType.BattleRoom || roomType == RoomType.EliteRoom);
+            return !runCompleted
+                && useRoomRewards
+                && (roomType == RoomType.BattleRoom || roomType == RoomType.EliteRoom);
+        }
+
+        private bool ShouldCompleteRun(int roomNumber)
+        {
+            return useRunCompletion && !runCompleted && roomNumber >= roomsToCompleteRun;
+        }
+
+        private void CompleteRun(RoomType roomType, int roomNumber)
+        {
+            runCompleted = true;
+            waitingForNextRoom = false;
+            waitingForReward = false;
+            ClearRewardChoices();
+            ClearPreparedRoomChoices();
+
+            CompanionRelationship relationship = FindAnyObjectByType<CompanionRelationship>();
+            int finalTrust = relationship != null ? relationship.Trust : -1;
+            int finalAffection = relationship != null ? relationship.Affection : -1;
+            RunSessionState.EndRun(RunEndReason.Victory, finalTrust, finalAffection);
+
+            if (logRunMessages)
+            {
+                Debug.Log($"Run complete after room #{roomNumber}: {roomType}. Press {completionReturnHomeKey} to return home.", this);
+            }
+        }
+
+        public void ReturnHomeAfterCompletion()
+        {
+            if (!runCompleted)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(homeScenePath))
+            {
+                Debug.LogWarning("RunManager cannot return home after completion because homeScenePath is empty.", this);
+                return;
+            }
+
+            SceneManager.LoadScene(homeScenePath, LoadSceneMode.Single);
         }
 
         private void PrepareRewardChoices()
@@ -498,6 +585,60 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             return candidates;
+        }
+
+        private void OnGUI()
+        {
+            if (!showCompletionPanel || !runCompleted)
+            {
+                return;
+            }
+
+            DrawCompletionPanel();
+        }
+
+        private void DrawCompletionPanel()
+        {
+            RunSessionSummary summary = RunSessionState.LastSummary;
+            Rect rect = GetCenteredRect(completionPanelRect);
+
+            GUILayout.BeginArea(rect, GUI.skin.box);
+            GUILayout.Label("本局通关");
+            GUILayout.Space(6f);
+            GUILayout.Label($"清理房间：{summary.RoomsCleared}/{roomsToCompleteRun}");
+            GUILayout.Label($"最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
+            GUILayout.Label(BuildCompletionRewardLine(summary));
+            GUILayout.Label(BuildCompletionRelationshipLine(summary));
+            GUILayout.Space(10f);
+            GUILayout.Label($"按 {completionReturnHomeKey} 返回家园");
+            GUILayout.EndArea();
+        }
+
+        private Rect GetCenteredRect(Rect sourceRect)
+        {
+            float width = Mathf.Min(sourceRect.width, Mathf.Max(180f, Screen.width - 16f));
+            float x = sourceRect.x <= 0f ? (Screen.width - width) * 0.5f : sourceRect.x;
+            return new Rect(Mathf.Max(8f, x), sourceRect.y, width, sourceRect.height);
+        }
+
+        private static string BuildCompletionRewardLine(RunSessionSummary summary)
+        {
+            if (summary.RewardTitles == null || summary.RewardTitles.Length == 0)
+            {
+                return "选择奖励：无";
+            }
+
+            return $"选择奖励：{string.Join(" / ", summary.RewardTitles)}";
+        }
+
+        private static string BuildCompletionRelationshipLine(RunSessionSummary summary)
+        {
+            if (!summary.HasRelationship)
+            {
+                return "AI 关系：未记录";
+            }
+
+            return $"AI 关系：信赖 {summary.FinalTrust}    好感 {summary.FinalAffection}";
         }
 
         private static bool IsSelectableRoomType(RoomType roomType)

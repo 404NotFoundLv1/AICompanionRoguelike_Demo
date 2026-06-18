@@ -396,6 +396,17 @@ MonoBehaviour:
   roomChoiceCount: 3
   selectableRoomTypes: 00000000010000000200000003000000
   roomSequence: 0000000001000000000000000200000003000000
+  useRunCompletion: 1
+  roomsToCompleteRun: 3
+  homeScenePath: Assets/_Game/Scenes/HomeScene.unity
+  completionReturnHomeKey: 19
+  showCompletionPanel: 1
+  completionPanelRect:
+    serializedVersion: 2
+    x: 0
+    y: 92
+    width: 500
+    height: 220
   useRoomRewards: 1
   rewardChoiceCount: 3
   selectableRewards: 0000000001000000020000000300000004000000
