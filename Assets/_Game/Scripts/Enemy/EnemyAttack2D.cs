@@ -12,6 +12,8 @@ namespace AICompanionRoguelike.Enemy
         private EnemyController2D owner;
         private float cooldownTimer;
 
+        public float Damage => damage;
+
         private void Awake()
         {
             owner = owner != null ? owner : GetComponent<EnemyController2D>();
@@ -58,6 +60,11 @@ namespace AICompanionRoguelike.Enemy
             cooldownTimer = cooldown;
 
             Debug.Log($"{name} attacked {target.name} for {damage} damage. Target HP: {targetHealth.CurrentHealth}/{targetHealth.MaxHealth}", this);
+        }
+
+        public void MultiplyDamage(float multiplier)
+        {
+            damage = Mathf.Max(0f, damage * Mathf.Max(0f, multiplier));
         }
 
         private void OnDrawGizmosSelected()

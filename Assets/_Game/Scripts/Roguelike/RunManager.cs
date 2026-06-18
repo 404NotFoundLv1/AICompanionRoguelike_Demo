@@ -41,7 +41,8 @@ namespace AICompanionRoguelike.Roguelike
 
         [Header("Run Completion")]
         [SerializeField] private bool useRunCompletion = true;
-        [SerializeField, Min(1)] private int roomsToCompleteRun = 3;
+        [SerializeField, Min(1)] private int roomsToCompleteRun = 4;
+        [SerializeField] private bool useBossFinalRoom = true;
         [SerializeField] private string homeScenePath = "Assets/_Game/Scenes/HomeScene.unity";
         [SerializeField] private Key completionReturnHomeKey = Key.E;
         [SerializeField] private bool showCompletionPanel = true;
@@ -246,6 +247,11 @@ namespace AICompanionRoguelike.Roguelike
 
         private RoomType GetRoomTypeForIndex(int index)
         {
+            if (ShouldUseBossRoomForIndex(index))
+            {
+                return RoomType.BossRoom;
+            }
+
             if (roomSequence == null || roomSequence.Length == 0)
             {
                 return RoomType.BattleRoom;
@@ -263,6 +269,8 @@ namespace AICompanionRoguelike.Roguelike
             {
                 string message = ShouldCompleteRun(roomNumber)
                     ? $"Room #{roomNumber} cleared. Run complete."
+                    : IsNextRoomBossRoom()
+                    ? $"Room #{roomNumber} cleared. Find the final portal to challenge the boss."
                     : ShouldOfferReward(roomType)
                     ? $"Room #{roomNumber} cleared. Choose a reward before selecting the next route."
                     : (useRoomChoicePortal
@@ -346,7 +354,22 @@ namespace AICompanionRoguelike.Roguelike
 
         private bool ShouldCompleteRun(int roomNumber)
         {
-            return useRunCompletion && !runCompleted && roomNumber >= roomsToCompleteRun;
+            return useRunCompletion
+                && !runCompleted
+                && CurrentRoomType == RoomType.BossRoom
+                && roomNumber >= roomsToCompleteRun;
+        }
+
+        private bool ShouldUseBossRoomForIndex(int index)
+        {
+            return useRunCompletion
+                && useBossFinalRoom
+                && index >= Mathf.Max(0, roomsToCompleteRun - 1);
+        }
+
+        private bool IsNextRoomBossRoom()
+        {
+            return GetRoomTypeForIndex(roomIndex + 1) == RoomType.BossRoom;
         }
 
         private void CompleteRun(RoomType roomType, int roomNumber)
@@ -529,19 +552,26 @@ namespace AICompanionRoguelike.Roguelike
         {
             currentRoomChoices.Clear();
 
-            List<RoomType> candidates = BuildSelectableCandidateList();
-            int targetCount = Mathf.Min(roomChoiceCount, candidates.Count);
-
-            for (int i = 0; i < targetCount; i++)
+            if (IsNextRoomBossRoom())
             {
-                int selectedIndex = UnityEngine.Random.Range(0, candidates.Count);
-                currentRoomChoices.Add(candidates[selectedIndex]);
-                candidates.RemoveAt(selectedIndex);
+                currentRoomChoices.Add(RoomType.BossRoom);
             }
-
-            if (currentRoomChoices.Count == 0)
+            else
             {
-                currentRoomChoices.Add(RoomType.BattleRoom);
+                List<RoomType> candidates = BuildSelectableCandidateList();
+                int targetCount = Mathf.Min(roomChoiceCount, candidates.Count);
+
+                for (int i = 0; i < targetCount; i++)
+                {
+                    int selectedIndex = UnityEngine.Random.Range(0, candidates.Count);
+                    currentRoomChoices.Add(candidates[selectedIndex]);
+                    candidates.RemoveAt(selectedIndex);
+                }
+
+                if (currentRoomChoices.Count == 0)
+                {
+                    currentRoomChoices.Add(RoomType.BattleRoom);
+                }
             }
 
             if (logRunMessages)

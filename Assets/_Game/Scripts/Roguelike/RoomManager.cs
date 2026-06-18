@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
 using UnityEngine;
 
@@ -21,6 +22,14 @@ namespace AICompanionRoguelike.Roguelike
             new Vector2(5.2f, -1.15f),
             new Vector2(1.6f, -1.15f)
         };
+
+        [Header("Boss Room")]
+        [SerializeField, Min(1)] private int bossEnemyCount = 1;
+        [SerializeField] private Vector2 bossSpawnPosition = new Vector2(4.35f, -1.15f);
+        [SerializeField, Min(1f)] private float bossHealthMultiplier = 3f;
+        [SerializeField, Min(0f)] private float bossDamageMultiplier = 1.6f;
+        [SerializeField, Min(0.1f)] private float bossScaleMultiplier = 1.35f;
+        [SerializeField] private Color bossTint = new Color(0.95f, 0.22f, 0.35f, 1f);
 
         [Header("Debug")]
         [SerializeField] private bool logRoomMessages = true;
@@ -148,6 +157,8 @@ namespace AICompanionRoguelike.Roguelike
                     return battleEnemyCount;
                 case RoomType.EliteRoom:
                     return eliteEnemyCount;
+                case RoomType.BossRoom:
+                    return bossEnemyCount;
                 default:
                     return 0;
             }
@@ -163,7 +174,9 @@ namespace AICompanionRoguelike.Roguelike
 
             Vector3 spawnPosition = GetSpawnPosition(index);
             GameObject enemyObject = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity, enemyContainer);
-            enemyObject.name = $"{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+            enemyObject.name = CurrentRoomType == RoomType.BossRoom
+                ? $"Boss_Room{CurrentRoomNumber}_{index + 1}"
+                : $"{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
             enemyObject.SetActive(true);
 
             EnemyController2D enemy = enemyObject.GetComponent<EnemyController2D>();
@@ -175,6 +188,7 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             enemy.SetTarget(playerTarget);
+            ConfigureSpawnedEnemy(enemyObject);
             activeEnemies.Add(enemy);
 
             if (logRoomMessages)
@@ -185,6 +199,11 @@ namespace AICompanionRoguelike.Roguelike
 
         private Vector3 GetSpawnPosition(int index)
         {
+            if (CurrentRoomType == RoomType.BossRoom)
+            {
+                return new Vector3(bossSpawnPosition.x, bossSpawnPosition.y, 0f);
+            }
+
             if (spawnPositions != null && spawnPositions.Length > 0)
             {
                 Vector2 position = spawnPositions[index % spawnPositions.Length];
@@ -192,6 +211,34 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             return transform.position + Vector3.right * (3f + index * 1.5f);
+        }
+
+        private void ConfigureSpawnedEnemy(GameObject enemyObject)
+        {
+            if (CurrentRoomType != RoomType.BossRoom || enemyObject == null)
+            {
+                return;
+            }
+
+            enemyObject.transform.localScale *= bossScaleMultiplier;
+
+            HealthComponent health = enemyObject.GetComponent<HealthComponent>();
+            if (health != null)
+            {
+                health.SetMaxHealth(health.MaxHealth * bossHealthMultiplier, true);
+            }
+
+            EnemyAttack2D attack = enemyObject.GetComponent<EnemyAttack2D>();
+            if (attack != null)
+            {
+                attack.MultiplyDamage(bossDamageMultiplier);
+            }
+
+            SpriteRenderer spriteRenderer = enemyObject.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = bossTint;
+            }
         }
 
         private void HandleEnemyDeath(EnemyController2D enemy)
