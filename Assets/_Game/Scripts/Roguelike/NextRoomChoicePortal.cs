@@ -1,0 +1,333 @@
+using System;
+using System.Collections.Generic;
+using AICompanionRoguelike.Character;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace AICompanionRoguelike.Roguelike
+{
+    [RequireComponent(typeof(Collider2D))]
+    public sealed class NextRoomChoicePortal : MonoBehaviour
+    {
+        [Header("References")]
+        [SerializeField] private RunManager runManager;
+
+        [Header("Interaction")]
+        [SerializeField] private Key interactKey = Key.E;
+        [SerializeField] private bool showInteractionPrompt = true;
+        [SerializeField] private string promptText = "按 E 选择下一关";
+        [SerializeField] private string choiceTitle = "选择下一关";
+
+        [Header("Visual")]
+        [SerializeField] private Vector3 portalPosition = new Vector3(6.45f, -1.15f, -0.1f);
+        [SerializeField] private Color idleColor = new Color(0.15f, 0.8f, 1f, 0.85f);
+        [SerializeField] private Color readyColor = new Color(0.35f, 1f, 0.6f, 0.95f);
+
+        private readonly List<RoomType> offeredChoices = new List<RoomType>(4);
+        private SpriteRenderer portalRenderer;
+        private Collider2D portalCollider;
+        private bool isVisible;
+        private bool playerInRange;
+        private bool isChoiceOpen;
+
+        public bool IsVisible => isVisible;
+        public bool IsPlayerInRange => playerInRange;
+        public bool IsChoiceOpen => isChoiceOpen;
+        public IReadOnlyList<RoomType> OfferedChoices => offeredChoices;
+
+        private void Reset()
+        {
+            Collider2D collider2D = GetComponent<Collider2D>();
+            collider2D.isTrigger = true;
+        }
+
+        private void Awake()
+        {
+            portalRenderer = GetComponent<SpriteRenderer>();
+            portalCollider = GetComponent<Collider2D>();
+            transform.position = portalPosition;
+            SetVisible(false);
+        }
+
+        private void OnEnable()
+        {
+            ResolveRunManager();
+            Subscribe();
+        }
+
+        private void Start()
+        {
+            ResolveRunManager();
+            Subscribe();
+        }
+
+        private void Update()
+        {
+            if (!isVisible || !playerInRange)
+            {
+                return;
+            }
+
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+            {
+                return;
+            }
+
+            if (isChoiceOpen)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    isChoiceOpen = false;
+                }
+
+                TrySelectChoiceByKeyboard(keyboard);
+                return;
+            }
+
+            if (interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame)
+            {
+                isChoiceOpen = offeredChoices.Count > 0;
+            }
+        }
+
+        private void OnDisable()
+        {
+            Unsubscribe();
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            if (!isVisible || other == null || other.GetComponentInParent<PlayerMovement2D>() == null)
+            {
+                return;
+            }
+
+            playerInRange = true;
+            RefreshColor();
+        }
+
+        private void OnTriggerExit2D(Collider2D other)
+        {
+            if (other == null || other.GetComponentInParent<PlayerMovement2D>() == null)
+            {
+                return;
+            }
+
+            playerInRange = false;
+            isChoiceOpen = false;
+            RefreshColor();
+        }
+
+        public void SelectChoice(int index)
+        {
+            if (runManager == null || index < 0 || index >= offeredChoices.Count)
+            {
+                return;
+            }
+
+            RoomType selectedRoomType = offeredChoices[index];
+            SetVisible(false);
+            runManager.AdvanceToSelectedRoom(selectedRoomType);
+        }
+
+        private void ResolveRunManager()
+        {
+            if (runManager == null)
+            {
+                runManager = FindAnyObjectByType<RunManager>();
+            }
+        }
+
+        private void Subscribe()
+        {
+            if (runManager == null)
+            {
+                return;
+            }
+
+            runManager.RoomChoicesPrepared -= HandleRoomChoicesPrepared;
+            runManager.RoomChoicesCleared -= HandleRoomChoicesCleared;
+            runManager.RunStarted -= HandleRunStarted;
+            runManager.RoomAdvanced -= HandleRoomAdvanced;
+
+            runManager.RoomChoicesPrepared += HandleRoomChoicesPrepared;
+            runManager.RoomChoicesCleared += HandleRoomChoicesCleared;
+            runManager.RunStarted += HandleRunStarted;
+            runManager.RoomAdvanced += HandleRoomAdvanced;
+        }
+
+        private void Unsubscribe()
+        {
+            if (runManager == null)
+            {
+                return;
+            }
+
+            runManager.RoomChoicesPrepared -= HandleRoomChoicesPrepared;
+            runManager.RoomChoicesCleared -= HandleRoomChoicesCleared;
+            runManager.RunStarted -= HandleRunStarted;
+            runManager.RoomAdvanced -= HandleRoomAdvanced;
+        }
+
+        private void HandleRunStarted(RunManager manager)
+        {
+            SetVisible(false);
+        }
+
+        private void HandleRoomAdvanced(RunManager manager, RoomType roomType, int roomNumber)
+        {
+            if (manager == null || !manager.IsWaitingForNextRoom)
+            {
+                SetVisible(false);
+            }
+        }
+
+        private void HandleRoomChoicesPrepared(RunManager manager, IReadOnlyList<RoomType> choices)
+        {
+            offeredChoices.Clear();
+
+            for (int i = 0; i < choices.Count; i++)
+            {
+                if (choices[i] != RoomType.BranchEventRoom)
+                {
+                    offeredChoices.Add(choices[i]);
+                }
+            }
+
+            transform.position = portalPosition;
+            SetVisible(offeredChoices.Count > 0);
+        }
+
+        private void HandleRoomChoicesCleared(RunManager manager)
+        {
+            SetVisible(false);
+        }
+
+        private void SetVisible(bool visible)
+        {
+            isVisible = visible;
+            playerInRange = false;
+            isChoiceOpen = false;
+
+            if (portalRenderer != null)
+            {
+                portalRenderer.enabled = visible;
+            }
+
+            if (portalCollider != null)
+            {
+                portalCollider.enabled = visible;
+                portalCollider.isTrigger = true;
+            }
+
+            RefreshColor();
+        }
+
+        private void RefreshColor()
+        {
+            if (portalRenderer == null)
+            {
+                return;
+            }
+
+            portalRenderer.color = playerInRange ? readyColor : idleColor;
+        }
+
+        private void TrySelectChoiceByKeyboard(Keyboard keyboard)
+        {
+            for (int i = 0; i < offeredChoices.Count && i < 9; i++)
+            {
+                if (WasDigitPressed(keyboard, i + 1))
+                {
+                    SelectChoice(i);
+                    return;
+                }
+            }
+        }
+
+        private static bool WasDigitPressed(Keyboard keyboard, int digit)
+        {
+            return digit switch
+            {
+                1 => keyboard.digit1Key.wasPressedThisFrame,
+                2 => keyboard.digit2Key.wasPressedThisFrame,
+                3 => keyboard.digit3Key.wasPressedThisFrame,
+                4 => keyboard.digit4Key.wasPressedThisFrame,
+                5 => keyboard.digit5Key.wasPressedThisFrame,
+                6 => keyboard.digit6Key.wasPressedThisFrame,
+                7 => keyboard.digit7Key.wasPressedThisFrame,
+                8 => keyboard.digit8Key.wasPressedThisFrame,
+                9 => keyboard.digit9Key.wasPressedThisFrame,
+                _ => false
+            };
+        }
+
+        private void OnGUI()
+        {
+            if (!isVisible || !playerInRange)
+            {
+                return;
+            }
+
+            if (isChoiceOpen)
+            {
+                DrawChoicePanel();
+                return;
+            }
+
+            if (showInteractionPrompt)
+            {
+                DrawPrompt();
+            }
+        }
+
+        private void DrawPrompt()
+        {
+            const float width = 260f;
+            const float height = 54f;
+            Rect rect = new Rect((Screen.width - width) * 0.5f, Screen.height - 120f, width, height);
+            GUI.Box(rect, promptText);
+        }
+
+        private void DrawChoicePanel()
+        {
+            const float width = 360f;
+            const float height = 230f;
+            Rect rect = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+
+            GUILayout.BeginArea(rect, GUI.skin.box);
+            GUILayout.Label(choiceTitle);
+            GUILayout.Space(8f);
+
+            for (int i = 0; i < offeredChoices.Count; i++)
+            {
+                string label = $"[{i + 1}] {GetRoomLabel(offeredChoices[i])}";
+                if (GUILayout.Button(label))
+                {
+                    SelectChoice(i);
+                }
+            }
+
+            GUILayout.Space(6f);
+            if (GUILayout.Button("[Esc] 关闭"))
+            {
+                isChoiceOpen = false;
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private static string GetRoomLabel(RoomType roomType)
+        {
+            return roomType switch
+            {
+                RoomType.BattleRoom => "战斗房",
+                RoomType.EliteRoom => "精英房",
+                RoomType.SafeRoom => "安全房",
+                RoomType.ShopRoom => "商店房",
+                _ => roomType.ToString()
+            };
+        }
+    }
+}
