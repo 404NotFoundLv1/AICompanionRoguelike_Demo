@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace AICompanionRoguelike.Roguelike
 {
@@ -85,6 +86,7 @@ namespace AICompanionRoguelike.Roguelike
 
         public void StartRun()
         {
+            RunSessionState.EnsureRunStartedFromBattleScene(SceneManager.GetActiveScene().path);
             roomIndex = -1;
             waitingForNextRoom = false;
 

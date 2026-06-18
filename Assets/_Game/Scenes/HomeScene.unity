@@ -897,6 +897,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Home.HomeExitPortal
   battleScenePath: Assets/Scenes/SampleScene.unity
+  interactKey: 19
+  requireConfirmInput: 1
+  showInteractionPrompt: 1
+  promptText: "\u6309 E \u5F00\u59CB\u63A2\u7D22"
+  readyColor: {r: 0.25, g: 1, b: 0.75, a: 1}
   logTransition: 1
 --- !u!61 &1573618385
 BoxCollider2D:

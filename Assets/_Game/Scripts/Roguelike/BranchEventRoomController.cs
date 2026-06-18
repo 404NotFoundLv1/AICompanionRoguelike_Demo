@@ -635,6 +635,7 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             Debug.Log($"Leave selected: returning to home scene {homeScenePath}.", this);
+            RunSessionState.EndRun(RunEndReason.BranchLeave);
             SceneManager.LoadScene(homeScenePath, LoadSceneMode.Single);
         }
 

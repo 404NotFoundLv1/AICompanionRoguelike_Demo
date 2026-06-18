@@ -1,4 +1,5 @@
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -50,6 +51,7 @@ namespace AICompanionRoguelike.Home
             }
 
             isReturningHome = true;
+            RunSessionState.EndRun(RunEndReason.PlayerDeath);
 
             if (logTransition)
             {
