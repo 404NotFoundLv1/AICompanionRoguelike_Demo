@@ -31,6 +31,12 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(0.1f)] private float bossScaleMultiplier = 1.35f;
         [SerializeField] private Color bossTint = new Color(0.95f, 0.22f, 0.35f, 1f);
 
+        [Header("Boss Phase Two")]
+        [SerializeField, Range(0.05f, 0.95f)] private float bossPhaseTwoHealthRatio = 0.5f;
+        [SerializeField, Min(1f)] private float bossPhaseTwoDamageMultiplier = 1.4f;
+        [SerializeField, Min(1f)] private float bossPhaseTwoScaleMultiplier = 1.1f;
+        [SerializeField] private Color bossPhaseTwoTint = new Color(1f, 0.08f, 0.08f, 1f);
+
         [Header("Debug")]
         [SerializeField] private bool logRoomMessages = true;
 
@@ -239,6 +245,20 @@ namespace AICompanionRoguelike.Roguelike
             {
                 spriteRenderer.color = bossTint;
             }
+
+            BossPhaseController phaseController = enemyObject.GetComponent<BossPhaseController>();
+            if (phaseController == null)
+            {
+                phaseController = enemyObject.AddComponent<BossPhaseController>();
+            }
+
+            phaseController.SetPhaseTwoTint(bossPhaseTwoTint);
+            phaseController.Configure(
+                health,
+                attack,
+                bossPhaseTwoHealthRatio,
+                bossPhaseTwoDamageMultiplier,
+                bossPhaseTwoScaleMultiplier);
         }
 
         private void HandleEnemyDeath(EnemyController2D enemy)
