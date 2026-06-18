@@ -9,6 +9,13 @@ namespace AICompanionRoguelike.QTE
         [Header("Defaults")]
         [SerializeField, Min(0.1f)] private float defaultDuration = 2f;
         [SerializeField] private Key defaultExpectedKey = Key.E;
+        [SerializeField] private Key[] qteResponseKeys =
+        {
+            Key.Q,
+            Key.E,
+            Key.R,
+            Key.F
+        };
         [SerializeField] private bool logDebugMessages = true;
 
         private float activeDuration;
@@ -128,7 +135,44 @@ namespace AICompanionRoguelike.QTE
         private bool WasWrongKeyPressed()
         {
             Keyboard keyboard = Keyboard.current;
-            return keyboard != null && keyboard.anyKey.wasPressedThisFrame && !WasExpectedKeyPressed();
+            if (keyboard == null || qteResponseKeys == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < qteResponseKeys.Length; i++)
+            {
+                Key key = qteResponseKeys[i];
+                if (IsWrongQTEResponseKey(key) && keyboard[key].wasPressedThisFrame)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsWrongQTEResponseKey(Key key)
+        {
+            return key != Key.None && key != expectedKey && IsConfiguredQTEResponseKey(key);
+        }
+
+        private bool IsConfiguredQTEResponseKey(Key key)
+        {
+            if (key == Key.None || qteResponseKeys == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < qteResponseKeys.Length; i++)
+            {
+                if (qteResponseKeys[i] == key)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

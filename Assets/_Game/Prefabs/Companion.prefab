@@ -263,8 +263,15 @@ MonoBehaviour:
   qteDuration: 2
   requestCooldown: 3
   expectedKey: 19
-  promptTemplate: Press {0} to answer companion's finisher call on {1}
+  promptTemplate: "\u6309 {0} \u56DE\u5E94 AI \u961F\u53CB\uFF0C\u5BF9 {1} \u53D1\u52A8\u8FDE\u643A\u7EC8\u7ED3"
   logResults: 1
+  successDamage: 999
+  guaranteeFinisherKill: 1
+  spawnSuccessEffect: 1
+  successEffectColor: {r: 0.25, g: 0.95, b: 1, a: 0.95}
+  successEffectDuration: 0.45
+  flashParticipants: 1
+  participantFlashColor: {r: 1, g: 0.95, b: 0.35, a: 1}
 --- !u!114 &5184058846357079444
 MonoBehaviour:
   m_ObjectHideFlags: 0
