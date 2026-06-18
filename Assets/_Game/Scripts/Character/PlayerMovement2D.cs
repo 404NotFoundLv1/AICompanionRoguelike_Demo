@@ -48,6 +48,7 @@ namespace AICompanionRoguelike.Character
         public bool IsDashing { get; private set; }
         public bool IsInvincible { get; private set; }
         public int FacingDirection => facingDirection;
+        public float MoveSpeed => moveSpeed;
 
         private void Reset()
         {
@@ -241,6 +242,11 @@ namespace AICompanionRoguelike.Character
 
             velocity.x = Mathf.MoveTowards(velocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
             body.linearVelocity = velocity;
+        }
+
+        public void MultiplyMoveSpeed(float multiplier)
+        {
+            moveSpeed = Mathf.Max(0f, moveSpeed * Mathf.Max(0f, multiplier));
         }
 
         private void HandleDeath(HealthComponent deadHealth, DamageInfo damageInfo)

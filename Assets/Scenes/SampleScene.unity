@@ -396,6 +396,14 @@ MonoBehaviour:
   roomChoiceCount: 3
   selectableRoomTypes: 00000000010000000200000003000000
   roomSequence: 0000000001000000000000000200000003000000
+  useRoomRewards: 1
+  rewardChoiceCount: 3
+  selectableRewards: 0000000001000000020000000300000004000000
+  maxHealthReward: 20
+  playerDamageRewardMultiplier: 1.2
+  moveSpeedRewardMultiplier: 1.1
+  companionCooldownRewardMultiplier: 0.85
+  bondRescueHealthReward: 10
   logRunMessages: 1
 --- !u!114 &736547106
 MonoBehaviour:
@@ -925,8 +933,8 @@ Transform:
   m_GameObject: {fileID: 1244547042}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 6.45, y: -1.15, z: -0.1}
-  m_LocalScale: {x: 2.8125, y: 7.5000005, z: 1}
+  m_LocalPosition: {x: 6.4707, y: -1.4883, z: -0.1}
+  m_LocalScale: {x: 2.55375, y: 3.2715, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -941,6 +949,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1302422684}
   - component: {fileID: 1302422683}
+  - component: {fileID: 1302422685}
   m_Layer: 0
   m_Name: StatusFeedbackUI
   m_TagString: Untagged
@@ -988,6 +997,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1302422685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302422682}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7fbbbf6c5baf6a49b1ea08165918e1d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.RoomRewardChoiceUI
+  runManager: {fileID: 736547105}
+  panelRect:
+    serializedVersion: 2
+    x: 360
+    y: 96
+    width: 420
+    height: 250
+  showPanel: 1
 --- !u!1 &1337357267
 GameObject:
   m_ObjectHideFlags: 0

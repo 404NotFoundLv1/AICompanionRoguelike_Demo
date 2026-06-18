@@ -20,6 +20,9 @@ namespace AICompanionRoguelike.Companion
 
         private float cooldownTimer;
 
+        public float Damage => damage;
+        public float Cooldown => cooldown;
+
         private void Reset()
         {
             sensor = GetComponent<CompanionSensor>();
@@ -81,6 +84,12 @@ namespace AICompanionRoguelike.Companion
             {
                 Debug.Log($"Companion attacked {targetHealth.name} for {appliedDamage} damage. Target HP: {targetHealth.CurrentHealth}/{targetHealth.MaxHealth}", targetHealth);
             }
+        }
+
+        public void MultiplyCooldown(float multiplier)
+        {
+            cooldown = Mathf.Max(0.05f, cooldown * Mathf.Max(0f, multiplier));
+            cooldownTimer = Mathf.Min(cooldownTimer, cooldown);
         }
 
         private void OnDrawGizmosSelected()

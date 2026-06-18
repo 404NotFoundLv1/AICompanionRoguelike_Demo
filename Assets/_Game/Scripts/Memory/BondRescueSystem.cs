@@ -25,6 +25,7 @@ namespace AICompanionRoguelike.Memory
 
         public bool RescueUsedThisRun => rescueUsedThisRun;
         public int RequiredTrust => requiredTrust;
+        public float RescueHealth => rescueHealth;
 
         private void Awake()
         {
@@ -55,6 +56,11 @@ namespace AICompanionRoguelike.Memory
         public void ResetRescueAvailability()
         {
             rescueUsedThisRun = false;
+        }
+
+        public void AddRescueHealth(float amount)
+        {
+            rescueHealth = Mathf.Max(1f, rescueHealth + amount);
         }
 
         public DamageInfo ModifyIncomingDamage(HealthComponent target, DamageInfo damageInfo)

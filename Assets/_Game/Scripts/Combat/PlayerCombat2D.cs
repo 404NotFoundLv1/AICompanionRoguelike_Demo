@@ -24,6 +24,9 @@ namespace AICompanionRoguelike.Combat
         private Rigidbody2D body;
         private float cooldownTimer;
 
+        public float Damage => damage;
+        public float Cooldown => cooldown;
+
         private void Reset()
         {
             inputReader = GetComponent<PlayerInputReader>();
@@ -106,6 +109,11 @@ namespace AICompanionRoguelike.Combat
         {
             Vector3 origin = attackOrigin != null ? attackOrigin.position : transform.position;
             return origin + new Vector3(attackOffset.x * facingDirection, attackOffset.y, 0f);
+        }
+
+        public void MultiplyDamage(float multiplier)
+        {
+            damage = Mathf.Max(0f, damage * Mathf.Max(0f, multiplier));
         }
 
         private void OnDrawGizmosSelected()
