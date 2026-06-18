@@ -164,10 +164,17 @@ namespace AICompanionRoguelike.UI
             GUILayout.Label(BuildRelationshipLine());
             GUILayout.Label(BuildMemoryLine());
 
-            if (branchEventRoomController != null && branchEventRoomController.IsWaitingForChoice)
+            if (branchEventRoomController != null && branchEventRoomController.IsLoadingBranchScene)
             {
                 GUILayout.Space(4f);
-                GUILayout.Label("Branch Room: previous combat room frozen");
+                GUILayout.Label("Branch Room: loading additive scene");
+            }
+            else if (branchEventRoomController != null && branchEventRoomController.IsWaitingForChoice)
+            {
+                GUILayout.Space(4f);
+                GUILayout.Label(branchEventRoomController.BranchSceneIsLoaded
+                    ? "Branch Room: additive scene loaded, combat room frozen"
+                    : "Branch Room: fallback position, combat room frozen");
             }
 
             GUILayout.EndArea();

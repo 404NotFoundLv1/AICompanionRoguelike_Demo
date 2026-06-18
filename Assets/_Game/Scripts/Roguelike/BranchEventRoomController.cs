@@ -1,11 +1,14 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Memory;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace AICompanionRoguelike.Roguelike
 {
@@ -24,7 +27,14 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private Key challengeKey = Key.Digit3;
         [SerializeField] private bool logChoices = true;
 
-        [Header("Branch Room")]
+        [Header("Branch Scene")]
+        [SerializeField] private bool useAdditiveBranchScene = true;
+        [SerializeField] private string branchScenePath = "Assets/_Game/Scenes/BranchEventRoom.unity";
+        [SerializeField] private string branchSpawnPointName = "BranchPlayerSpawn";
+        [SerializeField] private Vector3 branchSceneWorldOffset = new Vector3(24f, 0f, 0f);
+        [SerializeField] private bool unloadBranchSceneOnReturn = true;
+
+        [Header("Branch Room Fallback")]
         [SerializeField] private Vector3 branchRoomPlayerPosition = new Vector3(24f, -1.15f, 0f);
         [SerializeField] private bool showChoiceOverlay = true;
 
@@ -48,13 +58,20 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private int challengeAffectionDelta = 1;
         [SerializeField] private bool quitGameOnLeave = true;
 
+        [Header("Home Return")]
+        [SerializeField] private bool returnHomeOnLeave = true;
+        [SerializeField] private string homeScenePath = "Assets/_Game/Scenes/HomeScene.unity";
+
         private readonly List<BehaviourState> frozenBehaviours = new List<BehaviourState>(16);
         private readonly List<RigidbodyState> frozenRigidbodies = new List<RigidbodyState>(8);
 
         private bool isWaitingForChoice;
+        private bool isLoadingBranchScene;
+        private bool branchSceneIsLoaded;
         private bool playerIsInBranchRoom;
         private bool cameraIsInBranchRoom;
         private bool previousRoomIsFrozen;
+        private Scene loadedBranchScene;
         private Vector3 playerReturnPosition;
         private Vector2 playerReturnVelocity;
         private Vector3 cameraReturnPosition;
@@ -67,6 +84,8 @@ namespace AICompanionRoguelike.Roguelike
         public event Action<BranchEventRoomController, BranchEventChoice> ChoiceSelected;
 
         public bool IsWaitingForChoice => isWaitingForChoice;
+        public bool IsLoadingBranchScene => isLoadingBranchScene;
+        public bool BranchSceneIsLoaded => branchSceneIsLoaded;
         public bool PlayerIsInBranchRoom => playerIsInBranchRoom;
         public bool PreviousRoomIsFrozen => previousRoomIsFrozen;
         public BranchEventChoice LastSelectedChoice => lastSelectedChoice;
@@ -121,7 +140,7 @@ namespace AICompanionRoguelike.Roguelike
 
         public void BeginBranchEventRoom(int sourceRoomNumber, RoomType sourceRoomType)
         {
-            if (isWaitingForChoice)
+            if (isWaitingForChoice || isLoadingBranchScene)
             {
                 return;
             }
@@ -133,15 +152,7 @@ namespace AICompanionRoguelike.Roguelike
                 return;
             }
 
-            isWaitingForChoice = true;
-            FreezePreviousRoom();
-            MovePlayerIntoBranchRoom();
-            MoveCameraIntoBranchRoom();
-
-            if (logChoices)
-            {
-                Debug.Log($"BranchEventRoom opened from {sourceRoomType} #{sourceRoomNumber}: [{rescueKey}] Rescue, [{leaveKey}] Leave, [{challengeKey}] Challenge", this);
-            }
+            StartCoroutine(BeginBranchEventRoomRoutine(sourceRoomNumber, sourceRoomType));
         }
 
         public void SelectChoice(BranchEventChoice choice)
@@ -160,6 +171,13 @@ namespace AICompanionRoguelike.Roguelike
                 Debug.Log($"BranchEventRoom choice selected: {choice}. {lastOutcomeDescription}", this);
             }
 
+            if (choice == BranchEventChoice.Leave && returnHomeOnLeave)
+            {
+                ReturnFromBranchRoom();
+                ReturnHome();
+                return;
+            }
+
             if (choice == BranchEventChoice.Leave && quitGameOnLeave)
             {
                 QuitGameForNow();
@@ -167,6 +185,123 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             ReturnFromBranchRoom();
+        }
+
+        private IEnumerator BeginBranchEventRoomRoutine(int sourceRoomNumber, RoomType sourceRoomType)
+        {
+            isLoadingBranchScene = true;
+            FreezePreviousRoom();
+
+            Vector3 branchPlayerPosition = branchRoomPlayerPosition;
+            if (useAdditiveBranchScene)
+            {
+                yield return LoadBranchScene();
+                branchPlayerPosition = FindBranchSpawnPosition(branchPlayerPosition);
+            }
+
+            MovePlayerIntoBranchRoom(branchPlayerPosition);
+            MoveCameraIntoBranchRoom();
+            isWaitingForChoice = true;
+            isLoadingBranchScene = false;
+
+            if (logChoices)
+            {
+                string sceneInfo = branchSceneIsLoaded ? $" using additive scene {loadedBranchScene.path}" : " using fallback position";
+                Debug.Log($"BranchEventRoom opened from {sourceRoomType} #{sourceRoomNumber}{sceneInfo}: [{rescueKey}] Rescue, [{leaveKey}] Leave, [{challengeKey}] Challenge", this);
+            }
+        }
+
+        private IEnumerator LoadBranchScene()
+        {
+            branchSceneIsLoaded = false;
+            loadedBranchScene = default(Scene);
+
+            if (string.IsNullOrWhiteSpace(branchScenePath))
+            {
+                Debug.LogWarning("BranchEventRoom has no branchScenePath. Falling back to branchRoomPlayerPosition.", this);
+                yield break;
+            }
+
+            Scene existingScene = FindLoadedBranchScene();
+            if (existingScene.IsValid() && existingScene.isLoaded)
+            {
+                loadedBranchScene = existingScene;
+                branchSceneIsLoaded = true;
+                yield break;
+            }
+
+            if (!Application.CanStreamedLevelBeLoaded(branchScenePath))
+            {
+                Debug.LogWarning($"BranchEventRoom scene '{branchScenePath}' is not in Build Settings or cannot be loaded. Falling back to branchRoomPlayerPosition.", this);
+                yield break;
+            }
+
+            AsyncOperation loadOperation = SceneManager.LoadSceneAsync(branchScenePath, LoadSceneMode.Additive);
+            if (loadOperation == null)
+            {
+                Debug.LogWarning($"BranchEventRoom failed to start loading '{branchScenePath}'. Falling back to branchRoomPlayerPosition.", this);
+                yield break;
+            }
+
+            yield return loadOperation;
+
+            loadedBranchScene = FindLoadedBranchScene();
+            branchSceneIsLoaded = loadedBranchScene.IsValid() && loadedBranchScene.isLoaded;
+
+            if (!branchSceneIsLoaded)
+            {
+                Debug.LogWarning($"BranchEventRoom loaded '{branchScenePath}' but could not resolve the loaded scene. Falling back to branchRoomPlayerPosition.", this);
+                yield break;
+            }
+
+            OffsetLoadedBranchScene();
+        }
+
+        private Scene FindLoadedBranchScene()
+        {
+            Scene sceneByPath = SceneManager.GetSceneByPath(branchScenePath);
+            if (sceneByPath.IsValid())
+            {
+                return sceneByPath;
+            }
+
+            string sceneName = Path.GetFileNameWithoutExtension(branchScenePath);
+            return string.IsNullOrEmpty(sceneName) ? default(Scene) : SceneManager.GetSceneByName(sceneName);
+        }
+
+        private void OffsetLoadedBranchScene()
+        {
+            if (!loadedBranchScene.IsValid() || !loadedBranchScene.isLoaded || branchSceneWorldOffset == Vector3.zero)
+            {
+                return;
+            }
+
+            GameObject[] roots = loadedBranchScene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                roots[i].transform.position += branchSceneWorldOffset;
+            }
+        }
+
+        private Vector3 FindBranchSpawnPosition(Vector3 fallbackPosition)
+        {
+            if (!branchSceneIsLoaded || string.IsNullOrEmpty(branchSpawnPointName))
+            {
+                return fallbackPosition;
+            }
+
+            GameObject[] roots = loadedBranchScene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                Transform spawnPoint = FindChildRecursive(roots[i].transform, branchSpawnPointName);
+                if (spawnPoint != null)
+                {
+                    return spawnPoint.position;
+                }
+            }
+
+            Debug.LogWarning($"BranchEventRoom scene '{branchScenePath}' has no spawn point named '{branchSpawnPointName}'. Falling back to branchRoomPlayerPosition.", this);
+            return fallbackPosition;
         }
 
         private void ResolveReferences()
@@ -208,14 +343,14 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
-        private void MovePlayerIntoBranchRoom()
+        private void MovePlayerIntoBranchRoom(Vector3 branchPlayerPosition)
         {
             Rigidbody2D playerBody = player.GetComponent<Rigidbody2D>();
             playerReturnPosition = playerBody != null ? (Vector3)playerBody.position : player.position;
             playerReturnVelocity = playerBody != null ? playerBody.linearVelocity : Vector2.zero;
             playerIsInBranchRoom = true;
 
-            MoveTransform(player, branchRoomPlayerPosition, Vector2.zero);
+            MoveTransform(player, branchPlayerPosition, Vector2.zero);
         }
 
         private void ReturnPlayerFromBranchRoom()
@@ -377,15 +512,31 @@ namespace AICompanionRoguelike.Roguelike
 
         private void ReturnFromBranchRoom()
         {
-            if (!isWaitingForChoice && !playerIsInBranchRoom && !previousRoomIsFrozen && !cameraIsInBranchRoom)
+            if (!isWaitingForChoice && !isLoadingBranchScene && !playerIsInBranchRoom && !previousRoomIsFrozen && !cameraIsInBranchRoom && !branchSceneIsLoaded)
             {
                 return;
             }
 
             isWaitingForChoice = false;
+            isLoadingBranchScene = false;
             ReturnPlayerFromBranchRoom();
             ReturnCameraFromBranchRoom();
             RestorePreviousRoom();
+            UnloadBranchSceneIfNeeded();
+        }
+
+        private void UnloadBranchSceneIfNeeded()
+        {
+            if (!unloadBranchSceneOnReturn || !branchSceneIsLoaded || !loadedBranchScene.IsValid() || !loadedBranchScene.isLoaded)
+            {
+                branchSceneIsLoaded = false;
+                loadedBranchScene = default(Scene);
+                return;
+            }
+
+            SceneManager.UnloadSceneAsync(loadedBranchScene);
+            branchSceneIsLoaded = false;
+            loadedBranchScene = default(Scene);
         }
 
         private void ApplyChoiceOutcome(BranchEventChoice choice)
@@ -435,7 +586,9 @@ namespace AICompanionRoguelike.Roguelike
                 leaveAffectionDelta,
                 RelationshipMemoryTag.Abandoned);
 
-            lastOutcomeDescription = "Leave recorded an abandoned memory. Home is not implemented yet, so the game will quit.";
+            lastOutcomeDescription = returnHomeOnLeave
+                ? "Leave recorded an abandoned memory. Returning to home."
+                : "Leave recorded an abandoned memory. Home return is disabled, so the game will quit.";
         }
 
         private void ApplyChallengeOutcome()
@@ -472,15 +625,47 @@ namespace AICompanionRoguelike.Roguelike
             companionRelationship.ApplyMemoryEvent(sourceLabel, trustDelta, affectionDelta, memoryTag);
         }
 
+        private void ReturnHome()
+        {
+            if (string.IsNullOrWhiteSpace(homeScenePath))
+            {
+                Debug.LogWarning("Leave selected but homeScenePath is empty. Falling back to quit behavior.", this);
+                QuitGameForNow();
+                return;
+            }
+
+            Debug.Log($"Leave selected: returning to home scene {homeScenePath}.", this);
+            SceneManager.LoadScene(homeScenePath, LoadSceneMode.Single);
+        }
+
         private void QuitGameForNow()
         {
-            Debug.Log("Leave selected: home system is not implemented yet, quitting the game for now.", this);
+            Debug.Log("Leave selected: quitting the game because home return is disabled.", this);
 
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
             Application.Quit();
 #endif
+        }
+
+        private static Transform FindChildRecursive(Transform root, string childName)
+        {
+            if (root.name == childName)
+            {
+                return root;
+            }
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform match = FindChildRecursive(root.GetChild(i), childName);
+                if (match != null)
+                {
+                    return match;
+                }
+            }
+
+            return null;
         }
 
         private static void MoveTransform(Transform target, Vector3 position, Vector2 velocity)
@@ -499,7 +684,18 @@ namespace AICompanionRoguelike.Roguelike
 
         private void OnGUI()
         {
-            if (!isWaitingForChoice || !showChoiceOverlay)
+            if (!showChoiceOverlay)
+            {
+                return;
+            }
+
+            if (isLoadingBranchScene)
+            {
+                DrawBranchOverlay("Branch Event Room", "Loading branch scene...");
+                return;
+            }
+
+            if (!isWaitingForChoice)
             {
                 return;
             }
@@ -515,7 +711,7 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.BeginArea(panelRect, GUI.skin.box);
             GUILayout.Label("Branch Event Room");
             GUILayout.Space(8f);
-            GUILayout.Label("The previous combat room is frozen. Choose the consequence.");
+            GUILayout.Label(branchSceneIsLoaded ? "Additive branch scene loaded. Choose the consequence." : "Fallback branch position active. Choose the consequence.");
             GUILayout.Space(12f);
 
             if (GUILayout.Button($"[{rescueKey}] Rescue - heal and strengthen bond"))
@@ -523,7 +719,7 @@ namespace AICompanionRoguelike.Roguelike
                 SelectChoice(BranchEventChoice.Rescue);
             }
 
-            if (GUILayout.Button($"[{leaveKey}] Leave - quit for now"))
+            if (GUILayout.Button($"[{leaveKey}] Leave - return home"))
             {
                 SelectChoice(BranchEventChoice.Leave);
             }
@@ -533,6 +729,23 @@ namespace AICompanionRoguelike.Roguelike
                 SelectChoice(BranchEventChoice.Challenge);
             }
 
+            GUILayout.EndArea();
+        }
+
+        private static void DrawBranchOverlay(string title, string message)
+        {
+            const float panelWidth = 420f;
+            const float panelHeight = 120f;
+            Rect panelRect = new Rect(
+                (Screen.width - panelWidth) * 0.5f,
+                (Screen.height - panelHeight) * 0.5f,
+                panelWidth,
+                panelHeight);
+
+            GUILayout.BeginArea(panelRect, GUI.skin.box);
+            GUILayout.Label(title);
+            GUILayout.Space(8f);
+            GUILayout.Label(message);
             GUILayout.EndArea();
         }
 
