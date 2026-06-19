@@ -111,6 +111,7 @@ namespace AICompanionRoguelike.Memory
         {
             trust = ClampRelationshipValue(initialTrust);
             affection = ClampRelationshipValue(initialAffection);
+            CompanionRelationshipState.TryApplyTo(this);
         }
 
         private void OnEnable()
@@ -179,8 +180,23 @@ namespace AICompanionRoguelike.Memory
 
         public void SetRelationshipValues(int newTrust, int newAffection)
         {
+            SetRelationshipSnapshot(newTrust, newAffection, memoryTags, updateSessionState: true);
+        }
+
+        public void SetRelationshipSnapshot(
+            int newTrust,
+            int newAffection,
+            IReadOnlyList<RelationshipMemoryTagScore> newMemoryTags,
+            bool updateSessionState = true)
+        {
             trust = ClampRelationshipValue(newTrust);
             affection = ClampRelationshipValue(newAffection);
+            ReplaceMemoryTags(newMemoryTags);
+
+            if (updateSessionState)
+            {
+                CompanionRelationshipState.SaveFrom(this);
+            }
         }
 
         public int GetMemoryTagScore(RelationshipMemoryTag tag)
@@ -246,6 +262,7 @@ namespace AICompanionRoguelike.Memory
                 affection,
                 memoryTag);
 
+            CompanionRelationshipState.SaveFrom(this);
             RelationshipChanged?.Invoke(this, change);
             AnyRelationshipChanged?.Invoke(this, change);
 
@@ -280,6 +297,7 @@ namespace AICompanionRoguelike.Memory
                 affection,
                 memoryTag);
 
+            CompanionRelationshipState.SaveFrom(this);
             RelationshipChanged?.Invoke(this, change);
             AnyRelationshipChanged?.Invoke(this, change);
 
@@ -307,6 +325,26 @@ namespace AICompanionRoguelike.Memory
             RelationshipMemoryTagScore entry = memoryTags[index];
             entry.score = Mathf.Max(0, entry.score + delta);
             memoryTags[index] = entry;
+        }
+
+        private void ReplaceMemoryTags(IReadOnlyList<RelationshipMemoryTagScore> newMemoryTags)
+        {
+            if (ReferenceEquals(memoryTags, newMemoryTags))
+            {
+                return;
+            }
+
+            memoryTags.Clear();
+            if (newMemoryTags == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < newMemoryTags.Count; i++)
+            {
+                RelationshipMemoryTagScore entry = newMemoryTags[i];
+                AddMemoryTagScore(entry.tag, entry.score);
+            }
         }
 
         private int FindMemoryTagIndex(RelationshipMemoryTag tag)

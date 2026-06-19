@@ -9,6 +9,18 @@ namespace AICompanionRoguelike.Tests
 {
     public sealed class CompanionBossSupportTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            CompanionRelationshipState.Clear();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            CompanionRelationshipState.Clear();
+        }
+
         [Test]
         public void BossSupportShieldShowsVisualOnlyWhileActive()
         {
