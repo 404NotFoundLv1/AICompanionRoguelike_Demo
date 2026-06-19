@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
 using UnityEngine;
@@ -302,6 +303,12 @@ namespace AICompanionRoguelike.Roguelike
             telegraphedAttack.SetPhaseTwoTuning(
                 bossTelegraphedAttackPhaseTwoDamageMultiplier,
                 bossTelegraphedAttackPhaseTwoCooldownMultiplier);
+
+            CompanionBossSupport companionBossSupport = FindAnyObjectByType<CompanionBossSupport>();
+            if (companionBossSupport != null)
+            {
+                companionBossSupport.SetBossAttack(telegraphedAttack);
+            }
         }
 
         private void HandleEnemyDeath(EnemyController2D enemy)

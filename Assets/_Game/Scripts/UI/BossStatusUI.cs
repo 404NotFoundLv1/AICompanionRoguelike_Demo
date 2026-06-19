@@ -1,4 +1,5 @@
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Roguelike;
 using UnityEngine;
@@ -24,6 +25,7 @@ namespace AICompanionRoguelike.UI
         private HealthComponent bossHealth;
         private BossPhaseController bossPhaseController;
         private BossTelegraphedAttack2D bossTelegraphedAttack;
+        private CompanionBossSupport companionBossSupport;
         private string bossName;
         private string messageText;
         private float messageTimer;
@@ -54,6 +56,12 @@ namespace AICompanionRoguelike.UI
                 SubscribeToRoomManager();
             }
 
+            if (companionBossSupport == null)
+            {
+                ResolveReferences();
+                SubscribeToCompanionBossSupport();
+            }
+
             if (bossHealth != null && bossHealth.IsDead)
             {
                 ClearBossTarget();
@@ -64,6 +72,7 @@ namespace AICompanionRoguelike.UI
         {
             UnsubscribeFromBossPhase();
             UnsubscribeFromBossTelegraphedAttack();
+            UnsubscribeFromCompanionBossSupport();
 
             if (roomManager != null)
             {
@@ -75,6 +84,7 @@ namespace AICompanionRoguelike.UI
         private void ResolveReferences()
         {
             roomManager = roomManager != null ? roomManager : FindAnyObjectByType<RoomManager>();
+            companionBossSupport = companionBossSupport != null ? companionBossSupport : FindAnyObjectByType<CompanionBossSupport>();
         }
 
         private void SubscribeToRoomManager()
@@ -88,6 +98,7 @@ namespace AICompanionRoguelike.UI
             roomManager.RoomCleared -= HandleRoomCleared;
             roomManager.RoomStarted += HandleRoomStarted;
             roomManager.RoomCleared += HandleRoomCleared;
+            SubscribeToCompanionBossSupport();
         }
 
         private void HandleRoomStarted(RoomManager manager, RoomType roomType, int roomNumber)
@@ -207,6 +218,40 @@ namespace AICompanionRoguelike.UI
             ShowMessage(hit ? "BOSS ATTACK HIT" : "BOSS ATTACK MISSED");
         }
 
+        private void SubscribeToCompanionBossSupport()
+        {
+            if (companionBossSupport == null)
+            {
+                return;
+            }
+
+            companionBossSupport.SupportPrompted -= HandleCompanionSupportPrompted;
+            companionBossSupport.SupportActivated -= HandleCompanionSupportActivated;
+            companionBossSupport.SupportPrompted += HandleCompanionSupportPrompted;
+            companionBossSupport.SupportActivated += HandleCompanionSupportActivated;
+        }
+
+        private void UnsubscribeFromCompanionBossSupport()
+        {
+            if (companionBossSupport == null)
+            {
+                return;
+            }
+
+            companionBossSupport.SupportPrompted -= HandleCompanionSupportPrompted;
+            companionBossSupport.SupportActivated -= HandleCompanionSupportActivated;
+        }
+
+        private void HandleCompanionSupportPrompted(CompanionBossSupport support)
+        {
+            ShowMessage("AI: DODGE THE BOSS ATTACK");
+        }
+
+        private void HandleCompanionSupportActivated(CompanionBossSupport support)
+        {
+            ShowMessage("AI SUPPORT SHIELD");
+        }
+
         private void ShowMessage(string text)
         {
             messageText = text;
@@ -251,7 +296,10 @@ namespace AICompanionRoguelike.UI
             string warningLabel = bossTelegraphedAttack != null && bossTelegraphedAttack.IsWarningActive
                 ? "  WARNING"
                 : string.Empty;
-            return $"{bossName}  HP {bossHealth.CurrentHealth:0}/{bossHealth.MaxHealth:0}{phaseLabel}{warningLabel}";
+            string supportLabel = companionBossSupport != null && companionBossSupport.IsOnCooldown
+                ? $"  AI CD {companionBossSupport.CooldownRemaining:0.0}s"
+                : string.Empty;
+            return $"{bossName}  HP {bossHealth.CurrentHealth:0}/{bossHealth.MaxHealth:0}{phaseLabel}{warningLabel}{supportLabel}";
         }
 
         private void DrawMessage()

@@ -129,7 +129,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 5184058846357079444, guid: 90809396b57f64a4b865add328224211, type: 3}
   m_PrefabInstance: {fileID: 4315823804941768600}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 4315823804941768601}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d30f70a8d704d20488d81440634357de, type: 3}
@@ -1102,6 +1102,7 @@ GameObject:
   - component: {fileID: 1337357277}
   - component: {fileID: 1337357278}
   - component: {fileID: 1337357279}
+  - component: {fileID: 1337357280}
   m_Layer: 11
   m_Name: Player
   m_TagString: Untagged
@@ -1417,6 +1418,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Home.ReturnHomeOnDeath
   homeScenePath: Assets/_Game/Scenes/HomeScene.unity
   logTransition: 1
+--- !u!114 &1337357280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1337357267}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c20b333692125184198bae726e13d5b9, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerBossSupportShield
+  remainingDuration: 0
+  incomingDamageMultiplier: 0.5
+  logShieldMessages: 1
 --- !u!1 &1338785124
 GameObject:
   m_ObjectHideFlags: 0
@@ -1957,8 +1973,41 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1729427289006278405, guid: 90809396b57f64a4b865add328224211, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4315823804941768602}
   m_SourcePrefab: {fileID: 100100000, guid: 90809396b57f64a4b865add328224211, type: 3}
+--- !u!1 &4315823804941768601 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1729427289006278405, guid: 90809396b57f64a4b865add328224211, type: 3}
+  m_PrefabInstance: {fileID: 4315823804941768600}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4315823804941768602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4315823804941768601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d42ecd7644a9efb40b495983322d0cb5, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionBossSupport
+  player: {fileID: 1337357273}
+  relationship: {fileID: 313638958}
+  playerShield: {fileID: 1337357280}
+  bossAttack: {fileID: 0}
+  requiredTrust: 30
+  shieldDuration: 2
+  incomingDamageMultiplier: 0.5
+  cooldown: 5
+  highTrustCooldownMultiplier: 0.7
+  recordSupportMemory: 1
+  supportTrustDelta: 0
+  supportAffectionDelta: 1
+  logSupportMessages: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
