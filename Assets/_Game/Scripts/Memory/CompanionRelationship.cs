@@ -177,6 +177,12 @@ namespace AICompanionRoguelike.Memory
             ApplyRelationshipChange(sourceLabel, trustDelta, affectionDelta, memoryTag);
         }
 
+        public void SetRelationshipValues(int newTrust, int newAffection)
+        {
+            trust = ClampRelationshipValue(newTrust);
+            affection = ClampRelationshipValue(newAffection);
+        }
+
         public int GetMemoryTagScore(RelationshipMemoryTag tag)
         {
             int index = FindMemoryTagIndex(tag);

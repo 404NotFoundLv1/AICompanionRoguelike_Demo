@@ -1232,10 +1232,16 @@ MonoBehaviour:
   dialogueRect:
     serializedVersion: 2
     x: 0
-    y: 72
-    width: 560
-    height: 250
+    y: 64
+    width: 620
+    height: 360
   readyColor: {r: 0.9, g: 0.75, b: 1, a: 1}
+  thankSupportTrustDelta: 1
+  thankSupportAffectionDelta: 4
+  discussTacticsTrustDelta: 4
+  discussTacticsAffectionDelta: 1
+  keepDistanceTrustDelta: 0
+  keepDistanceAffectionDelta: -2
 --- !u!114 &1796711509
 MonoBehaviour:
   m_ObjectHideFlags: 0

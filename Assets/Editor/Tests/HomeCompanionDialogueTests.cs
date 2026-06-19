@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using AICompanionRoguelike.Character;
+using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.Roguelike;
 using NUnit.Framework;
 using UnityEngine;
@@ -79,11 +80,57 @@ namespace AICompanionRoguelike.Tests
             }
         }
 
+        [Test]
+        public void ThankSupportChoiceUsesLastRunBondAndWritesMemory()
+        {
+            GameObject owner = new GameObject("HomeCompanionDialogueUnderTest");
+
+            try
+            {
+                CompanionRelationship relationship = owner.AddComponent<CompanionRelationship>();
+                Component dialogue = CreateDialogue(owner);
+
+                RunSessionState.StartRunFromHome("Assets/Scenes/SampleScene.unity");
+                RunSessionState.RecordCompanionBossFeedback(
+                    "AI: I kept the shield ready when the fight got rough.",
+                    trustDelta: 2,
+                    affectionDelta: 1,
+                    supportActivations: 1,
+                    warningHits: 0,
+                    warningDodges: 1);
+                RunSessionState.EndRun(RunEndReason.Victory, finalTrust: 64, finalAffection: 58);
+
+                object thankSupport = CreateDialogueChoice("ThankSupport");
+                Invoke(dialogue, "ApplyDialogueChoice", thankSupport);
+
+                Assert.AreEqual(65, relationship.Trust);
+                Assert.AreEqual(62, relationship.Affection);
+                Assert.AreEqual(1, relationship.GetMemoryTagScore(RelationshipMemoryTag.Protected));
+
+                string text = (string)Invoke(dialogue, "BuildDialogueText");
+                Assert.That(text, Does.Contain("Thank"));
+                Assert.That(text, Does.Contain("Trust 65"));
+                Assert.That(text, Does.Contain("Affection 62"));
+                Assert.That(text, Does.Contain("Protected 1"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
         private static Component CreateDialogue(GameObject owner)
         {
             Type type = Type.GetType("AICompanionRoguelike.Home.HomeCompanionDialogue, Assembly-CSharp");
             Assert.NotNull(type, "HomeCompanionDialogue should exist.");
             return owner.AddComponent(type);
+        }
+
+        private static object CreateDialogueChoice(string choiceName)
+        {
+            Type type = Type.GetType("AICompanionRoguelike.Home.HomeCompanionDialogueChoice, Assembly-CSharp");
+            Assert.NotNull(type, "HomeCompanionDialogueChoice should exist.");
+            return Enum.Parse(type, choiceName);
         }
 
         private static object Invoke(object target, string methodName, params object[] parameters)

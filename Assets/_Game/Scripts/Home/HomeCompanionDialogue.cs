@@ -7,6 +7,42 @@ using UnityEngine.InputSystem;
 
 namespace AICompanionRoguelike.Home
 {
+    public enum HomeCompanionDialogueChoice
+    {
+        ThankSupport,
+        DiscussTactics,
+        KeepDistance
+    }
+
+    public readonly struct HomeCompanionDialogueChoiceOutcome
+    {
+        public HomeCompanionDialogueChoiceOutcome(
+            HomeCompanionDialogueChoice choice,
+            string label,
+            string playerLine,
+            string reactionLine,
+            int trustDelta,
+            int affectionDelta,
+            RelationshipMemoryTag memoryTag)
+        {
+            Choice = choice;
+            Label = label;
+            PlayerLine = playerLine;
+            ReactionLine = reactionLine;
+            TrustDelta = trustDelta;
+            AffectionDelta = affectionDelta;
+            MemoryTag = memoryTag;
+        }
+
+        public HomeCompanionDialogueChoice Choice { get; }
+        public string Label { get; }
+        public string PlayerLine { get; }
+        public string ReactionLine { get; }
+        public int TrustDelta { get; }
+        public int AffectionDelta { get; }
+        public RelationshipMemoryTag MemoryTag { get; }
+    }
+
     [RequireComponent(typeof(BoxCollider2D))]
     public sealed class HomeCompanionDialogue : MonoBehaviour
     {
@@ -25,15 +61,28 @@ namespace AICompanionRoguelike.Home
         [Header("Visual Feedback")]
         [SerializeField] private Color readyColor = new Color(0.9f, 0.75f, 1f, 1f);
 
+        [Header("Choice Outcomes")]
+        [SerializeField] private int thankSupportTrustDelta = 1;
+        [SerializeField] private int thankSupportAffectionDelta = 4;
+        [SerializeField] private int discussTacticsTrustDelta = 4;
+        [SerializeField] private int discussTacticsAffectionDelta = 1;
+        [SerializeField] private int keepDistanceTrustDelta;
+        [SerializeField] private int keepDistanceAffectionDelta = -2;
+
         private readonly StringBuilder dialogueBuilder = new StringBuilder(384);
         private readonly StringBuilder memoryBuilder = new StringBuilder(96);
         private bool isPlayerInRange;
         private bool isDialogueOpen;
+        private bool hasDialogueChoice;
+        private int syncedSummaryRunId = -1;
+        private HomeCompanionDialogueChoiceOutcome lastChoiceOutcome;
         private SpriteRenderer spriteRenderer;
         private Color idleColor;
 
         public bool IsPlayerInRange => isPlayerInRange;
         public bool IsDialogueOpen => isDialogueOpen;
+        public bool HasDialogueChoice => hasDialogueChoice;
+        public string LastChoiceReactionLine => hasDialogueChoice ? lastChoiceOutcome.ReactionLine : string.Empty;
 
         private void Reset()
         {
@@ -96,13 +145,53 @@ namespace AICompanionRoguelike.Home
             isDialogueOpen = isPlayerInRange && open;
         }
 
+        public HomeCompanionDialogueChoiceOutcome ApplyDialogueChoice(HomeCompanionDialogueChoice choice)
+        {
+            if (hasDialogueChoice)
+            {
+                return lastChoiceOutcome;
+            }
+
+            RunSessionSummary summary = RunSessionState.LastSummary;
+            EnsureRelationshipSeededFromSummary(summary);
+
+            HomeCompanionDialogueChoiceOutcome outcome = CreateChoiceOutcome(choice);
+            if (relationship != null)
+            {
+                relationship.ApplyMemoryEvent(
+                    $"Home Dialogue: {outcome.Label}",
+                    outcome.TrustDelta,
+                    outcome.AffectionDelta,
+                    outcome.MemoryTag);
+            }
+
+            hasDialogueChoice = true;
+            lastChoiceOutcome = outcome;
+            return outcome;
+        }
+
         public string BuildDialogueText()
         {
             RunSessionSummary summary = RunSessionState.LastSummary;
+            EnsureRelationshipSeededFromSummary(summary);
             dialogueBuilder.Clear();
 
             dialogueBuilder.AppendLine("AI Companion");
             dialogueBuilder.AppendLine(BuildGreetingLine(summary));
+
+            if (hasDialogueChoice)
+            {
+                dialogueBuilder.Append("You: ");
+                dialogueBuilder.AppendLine(lastChoiceOutcome.PlayerLine);
+                dialogueBuilder.AppendLine(lastChoiceOutcome.ReactionLine);
+                dialogueBuilder.Append("Last Home Choice: ");
+                dialogueBuilder.Append(lastChoiceOutcome.Label);
+                dialogueBuilder.Append("  Bond ");
+                dialogueBuilder.Append(lastChoiceOutcome.TrustDelta.ToString("+#;-#;0"));
+                dialogueBuilder.Append("/");
+                dialogueBuilder.AppendLine(lastChoiceOutcome.AffectionDelta.ToString("+#;-#;0"));
+            }
+
             dialogueBuilder.AppendLine(BuildBondLine(summary));
             dialogueBuilder.AppendLine(BuildMemoryLine(summary));
 
@@ -125,6 +214,17 @@ namespace AICompanionRoguelike.Home
             return dialogueBuilder.ToString();
         }
 
+        private void EnsureRelationshipSeededFromSummary(RunSessionSummary summary)
+        {
+            if (relationship == null || !summary.HasRelationship || syncedSummaryRunId == summary.RunId)
+            {
+                return;
+            }
+
+            relationship.SetRelationshipValues(summary.FinalTrust, summary.FinalAffection);
+            syncedSummaryRunId = summary.RunId;
+        }
+
         private string BuildGreetingLine(RunSessionSummary summary)
         {
             if (summary.HasCompanionFeedback)
@@ -137,14 +237,14 @@ namespace AICompanionRoguelike.Home
 
         private string BuildBondLine(RunSessionSummary summary)
         {
-            if (summary.HasRelationship)
-            {
-                return $"AI Bond: Trust {summary.FinalTrust} | Affection {summary.FinalAffection}";
-            }
-
             if (relationship != null)
             {
                 return $"AI Bond: Trust {relationship.Trust} | Affection {relationship.Affection}";
+            }
+
+            if (summary.HasRelationship)
+            {
+                return $"AI Bond: Trust {summary.FinalTrust} | Affection {summary.FinalAffection}";
             }
 
             return "AI Bond: Trust -- | Affection --";
@@ -209,6 +309,42 @@ namespace AICompanionRoguelike.Home
             return other != null && other.GetComponentInParent<PlayerMovement2D>() != null;
         }
 
+        private HomeCompanionDialogueChoiceOutcome CreateChoiceOutcome(HomeCompanionDialogueChoice choice)
+        {
+            switch (choice)
+            {
+                case HomeCompanionDialogueChoice.ThankSupport:
+                    return new HomeCompanionDialogueChoiceOutcome(
+                        choice,
+                        "Thank Support",
+                        "Thank you for standing with me.",
+                        "AI: I will remember that you noticed my support.",
+                        thankSupportTrustDelta,
+                        thankSupportAffectionDelta,
+                        RelationshipMemoryTag.Protected);
+                case HomeCompanionDialogueChoice.DiscussTactics:
+                    return new HomeCompanionDialogueChoiceOutcome(
+                        choice,
+                        "Discuss Tactics",
+                        "Let's review the fight and adjust our plan.",
+                        "AI: Good. Better plans mean I can cover you more precisely.",
+                        discussTacticsTrustDelta,
+                        discussTacticsAffectionDelta,
+                        RelationshipMemoryTag.Reliable);
+                case HomeCompanionDialogueChoice.KeepDistance:
+                    return new HomeCompanionDialogueChoiceOutcome(
+                        choice,
+                        "Keep Distance",
+                        "I need some quiet before the next run.",
+                        "AI: Understood. I will give you space for now.",
+                        keepDistanceTrustDelta,
+                        keepDistanceAffectionDelta,
+                        RelationshipMemoryTag.Cold);
+                default:
+                    return CreateChoiceOutcome(HomeCompanionDialogueChoice.ThankSupport);
+            }
+        }
+
         private void RefreshVisualFeedback()
         {
             if (spriteRenderer == null)
@@ -235,7 +371,36 @@ namespace AICompanionRoguelike.Home
             Rect dialogue = GetCenteredRect(dialogueRect);
             GUILayout.BeginArea(dialogue, GUI.skin.box);
             GUILayout.Label(BuildDialogueText());
+            DrawChoiceButtons();
             GUILayout.EndArea();
+        }
+
+        private void DrawChoiceButtons()
+        {
+            if (hasDialogueChoice)
+            {
+                GUILayout.Space(4f);
+                GUILayout.Label("Home memory recorded.");
+                return;
+            }
+
+            GUILayout.Space(4f);
+            GUILayout.Label("Choose a reply:");
+
+            if (GUILayout.Button("Thank Support"))
+            {
+                ApplyDialogueChoice(HomeCompanionDialogueChoice.ThankSupport);
+            }
+
+            if (GUILayout.Button("Discuss Tactics"))
+            {
+                ApplyDialogueChoice(HomeCompanionDialogueChoice.DiscussTactics);
+            }
+
+            if (GUILayout.Button("Keep Distance"))
+            {
+                ApplyDialogueChoice(HomeCompanionDialogueChoice.KeepDistance);
+            }
         }
 
         private Rect GetPromptRect()
