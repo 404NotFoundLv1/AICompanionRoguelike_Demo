@@ -799,8 +799,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 16
     y: 16
-    width: 390
-    height: 178
+    width: 520
+    height: 230
   showPanel: 1
 --- !u!4 &930820012
 Transform:

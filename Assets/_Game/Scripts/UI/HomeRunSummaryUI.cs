@@ -7,7 +7,7 @@ namespace AICompanionRoguelike.UI
     public sealed class HomeRunSummaryUI : MonoBehaviour
     {
         [Header("Layout")]
-        [SerializeField] private Rect panelRect = new Rect(16f, 16f, 390f, 178f);
+        [SerializeField] private Rect panelRect = new Rect(16f, 16f, 520f, 230f);
         [SerializeField] private bool showPanel = true;
 
         private readonly StringBuilder rewardBuilder = new StringBuilder(128);
@@ -27,6 +27,8 @@ namespace AICompanionRoguelike.UI
             GUILayout.Label($"清理房间：{summary.RoomsCleared}    最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
             GUILayout.Label(BuildRewardLine(summary));
             GUILayout.Label(BuildRelationshipLine(summary));
+            GUILayout.Label(BuildBossLine(summary));
+            GUILayout.Label(BuildCompanionFeedbackLine(summary));
             GUILayout.EndArea();
         }
 
@@ -61,6 +63,21 @@ namespace AICompanionRoguelike.UI
             }
 
             return $"AI 关系：信赖 {summary.FinalTrust}    好感 {summary.FinalAffection}";
+        }
+
+        private static string BuildBossLine(RunSessionSummary summary)
+        {
+            return $"Boss AI Stats: shield {summary.BossSupportActivations}, warning hit {summary.BossWarningHits}, dodge {summary.BossWarningDodges}";
+        }
+
+        private static string BuildCompanionFeedbackLine(RunSessionSummary summary)
+        {
+            if (!summary.HasCompanionFeedback)
+            {
+                return "AI Feedback: none";
+            }
+
+            return $"{summary.CompanionFeedbackLine}  Bond {summary.CompanionTrustDelta:+#;-#;0}/{summary.CompanionAffectionDelta:+#;-#;0}";
         }
 
         private static string GetEndReasonLabel(RunEndReason reason)

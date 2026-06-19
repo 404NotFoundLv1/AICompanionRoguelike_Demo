@@ -46,7 +46,7 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private string homeScenePath = "Assets/_Game/Scenes/HomeScene.unity";
         [SerializeField] private Key completionReturnHomeKey = Key.E;
         [SerializeField] private bool showCompletionPanel = true;
-        [SerializeField] private Rect completionPanelRect = new Rect(0f, 92f, 500f, 220f);
+        [SerializeField] private Rect completionPanelRect = new Rect(0f, 92f, 560f, 270f);
 
         [Header("Rewards")]
         [SerializeField] private bool useRoomRewards = true;
@@ -380,6 +380,12 @@ namespace AICompanionRoguelike.Roguelike
             ClearRewardChoices();
             ClearPreparedRoomChoices();
 
+            CompanionBossPostFightSettlement postFightSettlement = FindAnyObjectByType<CompanionBossPostFightSettlement>();
+            if (postFightSettlement != null)
+            {
+                postFightSettlement.SettleBossVictory();
+            }
+
             CompanionRelationship relationship = FindAnyObjectByType<CompanionRelationship>();
             int finalTrust = relationship != null ? relationship.Trust : -1;
             int finalAffection = relationship != null ? relationship.Affection : -1;
@@ -639,6 +645,8 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.Label($"最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
             GUILayout.Label(BuildCompletionRewardLine(summary));
             GUILayout.Label(BuildCompletionRelationshipLine(summary));
+            GUILayout.Label(BuildCompletionBossLine(summary));
+            GUILayout.Label(BuildCompletionCompanionLine(summary));
             GUILayout.Space(10f);
             GUILayout.Label($"按 {completionReturnHomeKey} 返回家园");
             GUILayout.EndArea();
@@ -669,6 +677,21 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             return $"AI 关系：信赖 {summary.FinalTrust}    好感 {summary.FinalAffection}";
+        }
+
+        private static string BuildCompletionBossLine(RunSessionSummary summary)
+        {
+            return $"Boss AI Stats: shield {summary.BossSupportActivations}, warning hit {summary.BossWarningHits}, dodge {summary.BossWarningDodges}";
+        }
+
+        private static string BuildCompletionCompanionLine(RunSessionSummary summary)
+        {
+            if (!summary.HasCompanionFeedback)
+            {
+                return "AI Feedback: none";
+            }
+
+            return $"{summary.CompanionFeedbackLine}  Bond {summary.CompanionTrustDelta:+#;-#;0}/{summary.CompanionAffectionDelta:+#;-#;0}";
         }
 
         private static bool IsSelectableRoomType(RoomType roomType)

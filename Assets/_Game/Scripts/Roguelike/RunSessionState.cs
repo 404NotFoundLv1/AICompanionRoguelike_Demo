@@ -13,6 +13,12 @@ namespace AICompanionRoguelike.Roguelike
         private static int lastRoomNumber;
         private static RoomType lastRoomType = RoomType.BattleRoom;
         private static readonly List<string> currentRewardTitles = new List<string>(8);
+        private static string companionFeedbackLine = string.Empty;
+        private static int companionTrustDelta;
+        private static int companionAffectionDelta;
+        private static int bossSupportActivations;
+        private static int bossWarningHits;
+        private static int bossWarningDodges;
 
         public static event Action<RunSessionSnapshot> RunStarted;
         public static event Action<RunSessionSnapshot> RunEnded;
@@ -73,6 +79,22 @@ namespace AICompanionRoguelike.Roguelike
             currentRewardTitles.Add(rewardTitle);
         }
 
+        public static void RecordCompanionBossFeedback(
+            string feedbackLine,
+            int trustDelta,
+            int affectionDelta,
+            int supportActivations,
+            int warningHits,
+            int warningDodges)
+        {
+            companionFeedbackLine = feedbackLine ?? string.Empty;
+            companionTrustDelta = trustDelta;
+            companionAffectionDelta = affectionDelta;
+            bossSupportActivations = Mathf.Max(0, supportActivations);
+            bossWarningHits = Mathf.Max(0, warningHits);
+            bossWarningDodges = Mathf.Max(0, warningDodges);
+        }
+
         public static void EndRun(RunEndReason reason, int finalTrust = -1, int finalAffection = -1)
         {
             if (!IsRunActive)
@@ -96,6 +118,12 @@ namespace AICompanionRoguelike.Roguelike
             lastRoomNumber = 0;
             lastRoomType = RoomType.BattleRoom;
             currentRewardTitles.Clear();
+            companionFeedbackLine = string.Empty;
+            companionTrustDelta = 0;
+            companionAffectionDelta = 0;
+            bossSupportActivations = 0;
+            bossWarningHits = 0;
+            bossWarningDodges = 0;
         }
 
         private static RunSessionSummary CreateSummary(RunEndReason reason, int finalTrust, int finalAffection)
@@ -108,7 +136,13 @@ namespace AICompanionRoguelike.Roguelike
                 lastRoomType,
                 currentRewardTitles.ToArray(),
                 finalTrust,
-                finalAffection);
+                finalAffection,
+                companionFeedbackLine,
+                companionTrustDelta,
+                companionAffectionDelta,
+                bossSupportActivations,
+                bossWarningHits,
+                bossWarningDodges);
         }
     }
 }
