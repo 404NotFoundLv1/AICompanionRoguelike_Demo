@@ -227,8 +227,10 @@ namespace AICompanionRoguelike.UI
 
             companionBossSupport.SupportPrompted -= HandleCompanionSupportPrompted;
             companionBossSupport.SupportActivated -= HandleCompanionSupportActivated;
+            companionBossSupport.SupportFeedbackIssued -= HandleCompanionSupportFeedbackIssued;
             companionBossSupport.SupportPrompted += HandleCompanionSupportPrompted;
             companionBossSupport.SupportActivated += HandleCompanionSupportActivated;
+            companionBossSupport.SupportFeedbackIssued += HandleCompanionSupportFeedbackIssued;
         }
 
         private void UnsubscribeFromCompanionBossSupport()
@@ -240,6 +242,7 @@ namespace AICompanionRoguelike.UI
 
             companionBossSupport.SupportPrompted -= HandleCompanionSupportPrompted;
             companionBossSupport.SupportActivated -= HandleCompanionSupportActivated;
+            companionBossSupport.SupportFeedbackIssued -= HandleCompanionSupportFeedbackIssued;
         }
 
         private void HandleCompanionSupportPrompted(CompanionBossSupport support)
@@ -249,7 +252,21 @@ namespace AICompanionRoguelike.UI
 
         private void HandleCompanionSupportActivated(CompanionBossSupport support)
         {
-            ShowMessage("AI SUPPORT SHIELD");
+            if (string.IsNullOrEmpty(support.LastFeedbackMessage))
+            {
+                ShowMessage("AI SUPPORT SHIELD");
+            }
+        }
+
+        private void HandleCompanionSupportFeedbackIssued(
+            CompanionBossSupport support,
+            CompanionBossSupportFeedbackState state,
+            string message)
+        {
+            if (!string.IsNullOrEmpty(message))
+            {
+                ShowMessage(message);
+            }
         }
 
         private void ShowMessage(string text)
@@ -296,8 +313,8 @@ namespace AICompanionRoguelike.UI
             string warningLabel = bossTelegraphedAttack != null && bossTelegraphedAttack.IsWarningActive
                 ? "  WARNING"
                 : string.Empty;
-            string supportLabel = companionBossSupport != null && companionBossSupport.IsOnCooldown
-                ? $"  AI CD {companionBossSupport.CooldownRemaining:0.0}s"
+            string supportLabel = companionBossSupport != null
+                ? $"  {companionBossSupport.GetSupportStatusLabel()}"
                 : string.Empty;
             return $"{bossName}  HP {bossHealth.CurrentHealth:0}/{bossHealth.MaxHealth:0}{phaseLabel}{warningLabel}{supportLabel}";
         }

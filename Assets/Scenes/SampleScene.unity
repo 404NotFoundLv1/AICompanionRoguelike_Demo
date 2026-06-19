@@ -1432,6 +1432,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerBossSupportShield
   remainingDuration: 0
   incomingDamageMultiplier: 0.5
+  showShieldVisual: 1
+  visualRoot: {fileID: 0}
+  visualRenderer: {fileID: 0}
+  visualColor: {r: 0.15, g: 0.85, b: 1, a: 0.48}
+  visualSize: {x: 1.85, y: 2.05}
+  visualSortingOrder: 85
+  pulseScaleAmount: 0.08
   logShieldMessages: 1
 --- !u!1 &1338785124
 GameObject:
@@ -1977,6 +1984,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1729427289006278405, guid: 90809396b57f64a4b865add328224211, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4315823804941768602}
+    - targetCorrespondingSourceObject: {fileID: 1729427289006278405, guid: 90809396b57f64a4b865add328224211, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4315823804941768603}
   m_SourcePrefab: {fileID: 100100000, guid: 90809396b57f64a4b865add328224211, type: 3}
 --- !u!1 &4315823804941768601 stripped
 GameObject:
@@ -2008,6 +2018,26 @@ MonoBehaviour:
   supportTrustDelta: 0
   supportAffectionDelta: 1
   logSupportMessages: 1
+--- !u!114 &4315823804941768603
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4315823804941768601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3712a570fceff44984998d4e3d39d3f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.CompanionBossSupportBubbleUI
+  support: {fileID: 4315823804941768602}
+  target: {fileID: 313638954}
+  worldOffset: {x: 0, y: 1.45, z: 0}
+  bubbleSize: {x: 340, y: 54}
+  visibleDuration: 2.6
+  warningColor: {r: 1, g: 0.82, b: 0.2, a: 0.96}
+  activeColor: {r: 0.2, g: 0.95, b: 1, a: 0.96}
+  blockedColor: {r: 1, g: 0.35, b: 0.25, a: 0.96}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

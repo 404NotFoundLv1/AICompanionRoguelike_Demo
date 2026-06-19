@@ -6,6 +6,17 @@ using UnityEngine;
 
 namespace AICompanionRoguelike.Companion
 {
+    public enum CompanionBossSupportFeedbackState
+    {
+        None,
+        WarningOnly,
+        Activated,
+        Cooldown,
+        TrustTooLow,
+        MissingRelationship,
+        MissingShield
+    }
+
     public sealed class CompanionBossSupport : MonoBehaviour
     {
         [Header("References")]
@@ -34,13 +45,16 @@ namespace AICompanionRoguelike.Companion
 
         public event Action<CompanionBossSupport> SupportPrompted;
         public event Action<CompanionBossSupport> SupportActivated;
+        public event Action<CompanionBossSupport, CompanionBossSupportFeedbackState, string> SupportFeedbackIssued;
 
         public bool IsOnCooldown => cooldownTimer > 0f;
         public float CooldownRemaining => cooldownTimer;
-        public bool CanActivateSupport => playerShield != null
-            && !IsOnCooldown
-            && relationship != null
-            && relationship.Trust >= requiredTrust;
+        public bool HasEnoughTrust => relationship != null && relationship.Trust >= requiredTrust;
+        public bool CanActivateSupport => playerShield != null && !IsOnCooldown && HasEnoughTrust;
+        public int RequiredTrust => requiredTrust;
+        public int CurrentTrust => relationship != null ? relationship.Trust : 0;
+        public CompanionBossSupportFeedbackState LastFeedbackState { get; private set; }
+        public string LastFeedbackMessage { get; private set; } = string.Empty;
 
         private void Reset()
         {
@@ -191,6 +205,7 @@ namespace AICompanionRoguelike.Companion
 
             if (!CanActivateSupport)
             {
+                IssueBlockedFeedback();
                 return;
             }
 
@@ -207,7 +222,81 @@ namespace AICompanionRoguelike.Companion
                 Debug.Log($"AI companion activated Boss support shield. Trust={relationship.Trust}.", this);
             }
 
+            IssueFeedback(
+                CompanionBossSupportFeedbackState.Activated,
+                $"AI: Shield up for {shieldDuration:0.0}s. Incoming damage x{incomingDamageMultiplier:0.##}.");
             SupportActivated?.Invoke(this);
+        }
+
+        public string GetSupportStatusLabel()
+        {
+            if (relationship == null)
+            {
+                return "AI LINK --";
+            }
+
+            if (playerShield == null)
+            {
+                return "AI SHIELD --";
+            }
+
+            if (relationship.Trust < requiredTrust)
+            {
+                return $"AI TRUST {relationship.Trust}/{requiredTrust}";
+            }
+
+            if (IsOnCooldown)
+            {
+                return $"AI CD {cooldownTimer:0.0}s";
+            }
+
+            return "AI READY";
+        }
+
+        private void IssueBlockedFeedback()
+        {
+            if (relationship == null)
+            {
+                IssueFeedback(
+                    CompanionBossSupportFeedbackState.MissingRelationship,
+                    "AI: I can warn you, but our bond data is missing.");
+                return;
+            }
+
+            if (relationship.Trust < requiredTrust)
+            {
+                IssueFeedback(
+                    CompanionBossSupportFeedbackState.TrustTooLow,
+                    $"AI: Trust {relationship.Trust}/{requiredTrust} is too low for shield support.");
+                return;
+            }
+
+            if (IsOnCooldown)
+            {
+                IssueFeedback(
+                    CompanionBossSupportFeedbackState.Cooldown,
+                    $"AI: Shield support is on cooldown for {cooldownTimer:0.0}s.");
+                return;
+            }
+
+            if (playerShield == null)
+            {
+                IssueFeedback(
+                    CompanionBossSupportFeedbackState.MissingShield,
+                    "AI: Shield link is missing. Dodge this one.");
+                return;
+            }
+
+            IssueFeedback(
+                CompanionBossSupportFeedbackState.WarningOnly,
+                "AI: Dodge the Boss attack.");
+        }
+
+        private void IssueFeedback(CompanionBossSupportFeedbackState state, string message)
+        {
+            LastFeedbackState = state;
+            LastFeedbackMessage = message;
+            SupportFeedbackIssued?.Invoke(this, state, message);
         }
 
         private float GetCooldownForCurrentTrust()
