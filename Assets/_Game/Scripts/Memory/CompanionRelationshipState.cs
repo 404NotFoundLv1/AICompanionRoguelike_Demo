@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,6 +12,18 @@ namespace AICompanionRoguelike.Memory
         public static int Trust { get; private set; }
         public static int Affection { get; private set; }
         public static IReadOnlyList<RelationshipMemoryTagScore> MemoryTags => memoryTags;
+
+        public static event Action StateChanged;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetRuntimeState()
+        {
+            HasState = false;
+            Trust = 0;
+            Affection = 0;
+            memoryTags.Clear();
+            StateChanged = null;
+        }
 
         public static void Clear()
         {
@@ -31,6 +44,23 @@ namespace AICompanionRoguelike.Memory
         }
 
         public static void SaveSnapshot(
+            int trust,
+            int affection,
+            IReadOnlyList<RelationshipMemoryTagScore> tags)
+        {
+            StoreSnapshot(trust, affection, tags);
+            StateChanged?.Invoke();
+        }
+
+        public static void RestoreSnapshot(
+            int trust,
+            int affection,
+            IReadOnlyList<RelationshipMemoryTagScore> tags)
+        {
+            StoreSnapshot(trust, affection, tags);
+        }
+
+        private static void StoreSnapshot(
             int trust,
             int affection,
             IReadOnlyList<RelationshipMemoryTagScore> tags)
