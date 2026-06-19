@@ -23,6 +23,7 @@ namespace AICompanionRoguelike.UI
 
         private HealthComponent bossHealth;
         private BossPhaseController bossPhaseController;
+        private BossTelegraphedAttack2D bossTelegraphedAttack;
         private string bossName;
         private string messageText;
         private float messageTimer;
@@ -62,6 +63,7 @@ namespace AICompanionRoguelike.UI
         private void OnDisable()
         {
             UnsubscribeFromBossPhase();
+            UnsubscribeFromBossTelegraphedAttack();
 
             if (roomManager != null)
             {
@@ -127,8 +129,10 @@ namespace AICompanionRoguelike.UI
 
                 bossHealth = enemy.GetComponent<HealthComponent>();
                 bossPhaseController = enemy.GetComponent<BossPhaseController>();
+                bossTelegraphedAttack = enemy.GetComponent<BossTelegraphedAttack2D>();
                 bossName = enemy.name;
                 SubscribeToBossPhase();
+                SubscribeToBossTelegraphedAttack();
                 return;
             }
         }
@@ -136,8 +140,10 @@ namespace AICompanionRoguelike.UI
         private void ClearBossTarget()
         {
             UnsubscribeFromBossPhase();
+            UnsubscribeFromBossTelegraphedAttack();
             bossHealth = null;
             bossPhaseController = null;
+            bossTelegraphedAttack = null;
             bossName = null;
         }
 
@@ -165,6 +171,40 @@ namespace AICompanionRoguelike.UI
         private void HandlePhaseTwoStarted(BossPhaseController phaseController)
         {
             ShowMessage("BOSS PHASE TWO");
+        }
+
+        private void SubscribeToBossTelegraphedAttack()
+        {
+            if (bossTelegraphedAttack == null)
+            {
+                return;
+            }
+
+            bossTelegraphedAttack.WarningStarted -= HandleBossWarningStarted;
+            bossTelegraphedAttack.AttackResolved -= HandleBossAttackResolved;
+            bossTelegraphedAttack.WarningStarted += HandleBossWarningStarted;
+            bossTelegraphedAttack.AttackResolved += HandleBossAttackResolved;
+        }
+
+        private void UnsubscribeFromBossTelegraphedAttack()
+        {
+            if (bossTelegraphedAttack == null)
+            {
+                return;
+            }
+
+            bossTelegraphedAttack.WarningStarted -= HandleBossWarningStarted;
+            bossTelegraphedAttack.AttackResolved -= HandleBossAttackResolved;
+        }
+
+        private void HandleBossWarningStarted(BossTelegraphedAttack2D attack)
+        {
+            ShowMessage("BOSS ATTACK WARNING");
+        }
+
+        private void HandleBossAttackResolved(BossTelegraphedAttack2D attack, bool hit)
+        {
+            ShowMessage(hit ? "BOSS ATTACK HIT" : "BOSS ATTACK MISSED");
         }
 
         private void ShowMessage(string text)
@@ -200,7 +240,18 @@ namespace AICompanionRoguelike.UI
 
             GUI.Label(
                 new Rect(rect.x + 10f, rect.y + 4f, rect.width - 20f, 18f),
-                $"{bossName}  HP {bossHealth.CurrentHealth:0}/{bossHealth.MaxHealth:0}");
+                BuildBossBarLabel());
+        }
+
+        private string BuildBossBarLabel()
+        {
+            string phaseLabel = bossPhaseController != null && bossPhaseController.IsInPhaseTwo
+                ? "  PHASE TWO"
+                : string.Empty;
+            string warningLabel = bossTelegraphedAttack != null && bossTelegraphedAttack.IsWarningActive
+                ? "  WARNING"
+                : string.Empty;
+            return $"{bossName}  HP {bossHealth.CurrentHealth:0}/{bossHealth.MaxHealth:0}{phaseLabel}{warningLabel}";
         }
 
         private void DrawMessage()

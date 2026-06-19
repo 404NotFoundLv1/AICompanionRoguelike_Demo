@@ -448,6 +448,14 @@ MonoBehaviour:
   bossPhaseTwoDamageMultiplier: 1.4
   bossPhaseTwoScaleMultiplier: 1.1
   bossPhaseTwoTint: {r: 1, g: 0.08, b: 0.08, a: 1}
+  useBossTelegraphedAttack: 1
+  bossTelegraphedAttackDamage: 18
+  bossTelegraphedAttackTriggerRange: 4.5
+  bossTelegraphedAttackWarningDuration: 0.9
+  bossTelegraphedAttackCooldown: 4
+  bossTelegraphedAttackSize: {x: 2.8, y: 1.35}
+  bossTelegraphedAttackPhaseTwoDamageMultiplier: 1.25
+  bossTelegraphedAttackPhaseTwoCooldownMultiplier: 0.75
   logRoomMessages: 1
 --- !u!4 &736547107
 Transform:

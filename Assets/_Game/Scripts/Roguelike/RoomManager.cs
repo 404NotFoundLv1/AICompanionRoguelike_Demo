@@ -37,6 +37,16 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(1f)] private float bossPhaseTwoScaleMultiplier = 1.1f;
         [SerializeField] private Color bossPhaseTwoTint = new Color(1f, 0.08f, 0.08f, 1f);
 
+        [Header("Boss Telegraph Attack")]
+        [SerializeField] private bool useBossTelegraphedAttack = true;
+        [SerializeField, Min(0f)] private float bossTelegraphedAttackDamage = 18f;
+        [SerializeField, Min(0f)] private float bossTelegraphedAttackTriggerRange = 4.5f;
+        [SerializeField, Min(0.05f)] private float bossTelegraphedAttackWarningDuration = 0.9f;
+        [SerializeField, Min(0.05f)] private float bossTelegraphedAttackCooldown = 4f;
+        [SerializeField] private Vector2 bossTelegraphedAttackSize = new Vector2(2.8f, 1.35f);
+        [SerializeField, Min(1f)] private float bossTelegraphedAttackPhaseTwoDamageMultiplier = 1.25f;
+        [SerializeField, Range(0.1f, 1f)] private float bossTelegraphedAttackPhaseTwoCooldownMultiplier = 0.75f;
+
         [Header("Debug")]
         [SerializeField] private bool logRoomMessages = true;
 
@@ -259,6 +269,39 @@ namespace AICompanionRoguelike.Roguelike
                 bossPhaseTwoHealthRatio,
                 bossPhaseTwoDamageMultiplier,
                 bossPhaseTwoScaleMultiplier);
+
+            ConfigureBossTelegraphedAttack(enemyObject);
+        }
+
+        private void ConfigureBossTelegraphedAttack(GameObject enemyObject)
+        {
+            BossTelegraphedAttack2D telegraphedAttack = enemyObject.GetComponent<BossTelegraphedAttack2D>();
+            if (!useBossTelegraphedAttack)
+            {
+                if (telegraphedAttack != null)
+                {
+                    telegraphedAttack.enabled = false;
+                }
+
+                return;
+            }
+
+            if (telegraphedAttack == null)
+            {
+                telegraphedAttack = enemyObject.AddComponent<BossTelegraphedAttack2D>();
+            }
+
+            telegraphedAttack.enabled = true;
+            telegraphedAttack.Configure(
+                playerTarget,
+                bossTelegraphedAttackDamage,
+                bossTelegraphedAttackTriggerRange,
+                bossTelegraphedAttackWarningDuration,
+                bossTelegraphedAttackCooldown,
+                bossTelegraphedAttackSize);
+            telegraphedAttack.SetPhaseTwoTuning(
+                bossTelegraphedAttackPhaseTwoDamageMultiplier,
+                bossTelegraphedAttackPhaseTwoCooldownMultiplier);
         }
 
         private void HandleEnemyDeath(EnemyController2D enemy)
