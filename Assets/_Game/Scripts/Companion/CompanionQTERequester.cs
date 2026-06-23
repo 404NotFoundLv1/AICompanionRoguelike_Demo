@@ -1,6 +1,7 @@
 using System.Collections;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
+using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.QTE;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,6 +12,7 @@ namespace AICompanionRoguelike.Companion
     {
         [Header("References")]
         [SerializeField] private QTEManager qteManager;
+        [SerializeField] private CompanionRelationship relationship;
 
         [Header("Request")]
         [SerializeField, Min(0.1f)] private float qteDuration = 2f;
@@ -32,9 +34,20 @@ namespace AICompanionRoguelike.Companion
         private HealthComponent activeTarget;
         private QTEManager activeManager;
 
+        public float BaseRequestCooldown => requestCooldown;
+        public float EffectiveRequestCooldown
+        {
+            get
+            {
+                int trust = relationship != null ? relationship.Trust : 50;
+                return requestCooldown * CompanionRelationshipProfile.GetQteCooldownMultiplier(trust);
+            }
+        }
+
         private void Awake()
         {
             qteManager = qteManager != null ? qteManager : QTEManager.Instance;
+            relationship = relationship != null ? relationship : GetComponent<CompanionRelationship>();
         }
 
         private void OnEnable()
@@ -83,7 +96,7 @@ namespace AICompanionRoguelike.Companion
                 return;
             }
 
-            cooldownTimer = requestCooldown;
+            cooldownTimer = EffectiveRequestCooldown;
             activeTarget = targetHealth;
             activeManager = manager;
             activeManager.QTECompleted += HandleQTECompleted;

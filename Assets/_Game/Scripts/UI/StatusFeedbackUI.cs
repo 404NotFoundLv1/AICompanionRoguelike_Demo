@@ -1,5 +1,6 @@
 using System.Text;
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.Roguelike;
 using UnityEngine;
@@ -24,12 +25,14 @@ namespace AICompanionRoguelike.UI
         private BranchEventRoomController subscribedBranchEventRoomController;
         private string toastMessage;
         private float toastTimer;
+        private GUIStyle toastLabelStyle;
 
         private void OnEnable()
         {
             ResolveReferences();
             SubscribeToBranchEventRoom();
             CompanionRelationship.AnyRelationshipChanged += HandleAnyRelationshipChanged;
+            CompanionRunFeedback.FeedbackRaised += HandleCompanionFeedbackRaised;
         }
 
         private void Start()
@@ -56,6 +59,7 @@ namespace AICompanionRoguelike.UI
         {
             UnsubscribeFromBranchEventRoom();
             CompanionRelationship.AnyRelationshipChanged -= HandleAnyRelationshipChanged;
+            CompanionRunFeedback.FeedbackRaised -= HandleCompanionFeedbackRaised;
         }
 
         private void ResolveReferences()
@@ -134,6 +138,14 @@ namespace AICompanionRoguelike.UI
                 $"{change.sourceLabel}: Trust {change.previousTrust}->{change.currentTrust} ({change.trustDelta:+#;-#;0}), Affection {change.previousAffection}->{change.currentAffection} ({change.affectionDelta:+#;-#;0}), Memory {change.memoryTag}");
         }
 
+        private void HandleCompanionFeedbackRaised(CompanionRunFeedback source, string message)
+        {
+            if (showToast && !string.IsNullOrEmpty(message))
+            {
+                ShowToast(message);
+            }
+        }
+
         private void ShowToast(string message)
         {
             toastMessage = message;
@@ -207,48 +219,80 @@ namespace AICompanionRoguelike.UI
                 return "AI Bond: --";
             }
 
-            return $"AI Bond: Trust {companionRelationship.Trust} | Affection {companionRelationship.Affection}";
+            CompanionRelationshipProfileSnapshot profile = CompanionRelationshipProfile.Evaluate(
+                companionRelationship.Trust,
+                companionRelationship.Affection,
+                companionRelationship.MemoryTags);
+            return $"AI Bond: {profile.Tier} | Trust {companionRelationship.Trust} | Affection {companionRelationship.Affection}";
         }
 
         private string BuildMemoryLine()
         {
-            if (companionRelationship == null || companionRelationship.MemoryTags.Count == 0)
+            if (companionRelationship == null)
+            {
+                return "Memory: none";
+            }
+
+            CompanionRelationshipProfileSnapshot profile = CompanionRelationshipProfile.Evaluate(
+                companionRelationship.Trust,
+                companionRelationship.Affection,
+                companionRelationship.MemoryTags);
+            if (!profile.HasDominantMemory)
             {
                 return "Memory: none";
             }
 
             memoryBuilder.Clear();
-            memoryBuilder.Append("Memory: ");
-
-            for (int i = 0; i < companionRelationship.MemoryTags.Count; i++)
-            {
-                RelationshipMemoryTagScore entry = companionRelationship.MemoryTags[i];
-                if (i > 0)
-                {
-                    memoryBuilder.Append(", ");
-                }
-
-                memoryBuilder.Append(entry.tag);
-                memoryBuilder.Append(" ");
-                memoryBuilder.Append(entry.score);
-            }
-
+            memoryBuilder.Append("Memory Lead: ");
+            memoryBuilder.Append(profile.DominantMemoryTag);
+            memoryBuilder.Append(" ");
+            memoryBuilder.Append(profile.DominantMemoryScore);
             return memoryBuilder.ToString();
         }
 
         private void DrawToast()
         {
-            const float width = 720f;
-            const float height = 76f;
-            Rect rect = new Rect(
-                (Screen.width - width) * 0.5f,
-                24f,
-                width,
-                height);
+            Rect rect = CalculateToastRect(Screen.width, Screen.height);
+            if (toastLabelStyle == null)
+            {
+                toastLabelStyle = new GUIStyle(GUI.skin.label)
+                {
+                    wordWrap = true
+                };
+            }
 
             GUILayout.BeginArea(rect, GUI.skin.box);
-            GUILayout.Label(toastMessage);
+            GUILayout.Label(toastMessage, toastLabelStyle);
             GUILayout.EndArea();
+        }
+
+        private Rect CalculateToastRect(float screenWidth, float screenHeight)
+        {
+            const float desiredWidth = 720f;
+            const float height = 76f;
+            const float margin = 16f;
+            const float gap = 12f;
+            const float minimumSideWidth = 240f;
+
+            float safeScreenWidth = Mathf.Max(0f, screenWidth - margin * 2f);
+            float panelRight = panelRect.x + panelRect.width;
+            float sideX = panelRight + gap;
+            float sideWidth = screenWidth - sideX - margin;
+            bool canPlaceBesidePanel = showPanel && sideWidth >= minimumSideWidth;
+
+            float width = canPlaceBesidePanel
+                ? Mathf.Min(desiredWidth, sideWidth)
+                : Mathf.Min(desiredWidth, safeScreenWidth);
+            float x = canPlaceBesidePanel
+                ? sideX
+                : Mathf.Max(margin, (screenWidth - width) * 0.5f);
+            float preferredY = canPlaceBesidePanel || !showPanel
+                ? Mathf.Max(margin, panelRect.y)
+                : panelRect.y + panelRect.height + gap;
+            float maximumY = Mathf.Max(margin, screenHeight - height - margin);
+            float y = Mathf.Clamp(preferredY, margin, maximumY);
+
+            return new Rect(x, y, width, height);
         }
     }
 }
