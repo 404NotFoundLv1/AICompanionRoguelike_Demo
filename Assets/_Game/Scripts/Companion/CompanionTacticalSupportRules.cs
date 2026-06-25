@@ -9,40 +9,55 @@ namespace AICompanionRoguelike.Companion
             float guardDuration,
             float guardDamageMultiplier,
             float guardCooldown,
+            float guardTriggerHealthRatio,
             float suppressionDuration,
             float suppressionDamageMultiplier,
             float suppressionMoveMultiplier,
-            float suppressionCooldown)
+            float suppressionCooldown,
+            float suppressionTriggerHealthRatio)
         {
             GuardDuration = guardDuration;
             GuardDamageMultiplier = guardDamageMultiplier;
             GuardCooldown = guardCooldown;
+            GuardTriggerHealthRatio = guardTriggerHealthRatio;
             SuppressionDuration = suppressionDuration;
             SuppressionDamageMultiplier = suppressionDamageMultiplier;
             SuppressionMoveMultiplier = suppressionMoveMultiplier;
             SuppressionCooldown = suppressionCooldown;
+            SuppressionTriggerHealthRatio = suppressionTriggerHealthRatio;
         }
 
         public float GuardDuration { get; }
         public float GuardDamageMultiplier { get; }
         public float GuardCooldown { get; }
+        public float GuardTriggerHealthRatio { get; }
         public float SuppressionDuration { get; }
         public float SuppressionDamageMultiplier { get; }
         public float SuppressionMoveMultiplier { get; }
         public float SuppressionCooldown { get; }
+        public float SuppressionTriggerHealthRatio { get; }
     }
 
     public static class CompanionTacticalSupportRules
     {
         public static CompanionTacticalSupportTuning Evaluate(CompanionRelationshipProfileSnapshot profile)
         {
+            return Evaluate(profile, CompanionSkillTendency.Balanced);
+        }
+
+        public static CompanionTacticalSupportTuning Evaluate(
+            CompanionRelationshipProfileSnapshot profile,
+            CompanionSkillTendency tendency)
+        {
             float guardDuration;
             float guardDamageMultiplier;
             float guardCooldown;
+            float guardTriggerHealthRatio = 0.35f;
             float suppressionDuration;
             float suppressionDamageMultiplier;
             float suppressionMoveMultiplier;
             float suppressionCooldown;
+            float suppressionTriggerHealthRatio = 0.55f;
 
             switch (profile.Tier)
             {
@@ -95,14 +110,36 @@ namespace AICompanionRoguelike.Companion
                 }
             }
 
+            switch (tendency)
+            {
+                case CompanionSkillTendency.Guardian:
+                    guardDuration += 0.55f;
+                    guardDamageMultiplier -= 0.12f;
+                    guardCooldown *= 0.75f;
+                    guardTriggerHealthRatio += 0.1f;
+                    break;
+                case CompanionSkillTendency.Suppressor:
+                    suppressionDuration += 0.45f;
+                    suppressionDamageMultiplier -= 0.12f;
+                    suppressionMoveMultiplier -= 0.1f;
+                    suppressionCooldown *= 0.75f;
+                    suppressionTriggerHealthRatio += 0.12f;
+                    break;
+                case CompanionSkillTendency.Link:
+                    suppressionCooldown *= 0.95f;
+                    break;
+            }
+
             return new CompanionTacticalSupportTuning(
                 Mathf.Max(0.1f, guardDuration),
                 Mathf.Clamp(guardDamageMultiplier, 0.25f, 1f),
                 Mathf.Max(0.1f, guardCooldown),
+                Mathf.Clamp(guardTriggerHealthRatio, 0.05f, 1f),
                 Mathf.Max(0.1f, suppressionDuration),
                 Mathf.Clamp(suppressionDamageMultiplier, 0.25f, 1f),
                 Mathf.Clamp(suppressionMoveMultiplier, 0.25f, 1f),
-                Mathf.Max(0.1f, suppressionCooldown));
+                Mathf.Max(0.1f, suppressionCooldown),
+                Mathf.Clamp(suppressionTriggerHealthRatio, 0.05f, 1f));
         }
     }
 }

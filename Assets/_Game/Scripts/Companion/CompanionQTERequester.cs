@@ -40,7 +40,10 @@ namespace AICompanionRoguelike.Companion
             get
             {
                 int trust = relationship != null ? relationship.Trust : 50;
-                return requestCooldown * CompanionRelationshipProfile.GetQteCooldownMultiplier(trust);
+                float relationshipMultiplier = CompanionRelationshipProfile.GetQteCooldownMultiplier(trust);
+                float tendencyMultiplier = CompanionSkillTendencyRules.GetQteCooldownMultiplier(
+                    CompanionRunBuildState.CurrentTendency);
+                return Mathf.Max(0.1f, requestCooldown * relationshipMultiplier * tendencyMultiplier);
             }
         }
 

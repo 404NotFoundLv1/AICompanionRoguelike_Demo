@@ -41,6 +41,7 @@ namespace AICompanionRoguelike.Companion
         public bool IsSuppressionOnCooldown => suppressionCooldownTimer > 0f;
         public float GuardCooldownRemaining => guardCooldownTimer;
         public float SuppressionCooldownRemaining => suppressionCooldownTimer;
+        public CompanionSkillTendency CurrentTendency => CompanionRunBuildState.CurrentTendency;
 
         private void Reset()
         {
@@ -127,7 +128,7 @@ namespace AICompanionRoguelike.Companion
                 return false;
             }
 
-            CompanionTacticalSupportTuning tuning = CompanionTacticalSupportRules.Evaluate(BuildProfile());
+            CompanionTacticalSupportTuning tuning = GetCurrentTuning();
             playerShield.Activate(tuning.GuardDuration, tuning.GuardDamageMultiplier);
             guardCooldownTimer = tuning.GuardCooldown;
 
@@ -167,8 +168,12 @@ namespace AICompanionRoguelike.Companion
                 return false;
             }
 
+            CompanionTacticalSupportTuning tuning = GetCurrentTuning();
             float healthRatio = targetHealth.MaxHealth > 0f ? targetHealth.CurrentHealth / targetHealth.MaxHealth : 0f;
-            if (healthRatio > suppressionHealthThreshold || healthRatio <= suppressionMinimumHealthThreshold)
+            float effectiveSuppressionThreshold = Mathf.Max(
+                suppressionHealthThreshold,
+                tuning.SuppressionTriggerHealthRatio);
+            if (healthRatio > effectiveSuppressionThreshold || healthRatio <= suppressionMinimumHealthThreshold)
             {
                 return false;
             }
@@ -185,7 +190,6 @@ namespace AICompanionRoguelike.Companion
                 return false;
             }
 
-            CompanionTacticalSupportTuning tuning = CompanionTacticalSupportRules.Evaluate(BuildProfile());
             if (enemyAttack != null)
             {
                 enemyAttack.ApplyTacticalSuppression(tuning.SuppressionDuration, tuning.SuppressionDamageMultiplier);
@@ -222,9 +226,10 @@ namespace AICompanionRoguelike.Companion
 
         public string GetStatusLabel()
         {
+            string tendency = CompanionSkillTendencyRules.GetDisplayName(CurrentTendency);
             string guard = IsGuardOnCooldown ? $"Guard {guardCooldownTimer:0.0}s" : "Guard Ready";
             string suppress = IsSuppressionOnCooldown ? $"Suppress {suppressionCooldownTimer:0.0}s" : "Suppress Ready";
-            return $"AI Tactics: {guard} | {suppress}";
+            return $"AI Tactics: {tendency} | {guard} | {suppress}";
         }
 
         private void ResolveReferences()
@@ -260,6 +265,11 @@ namespace AICompanionRoguelike.Companion
                     50,
                     50,
                     Array.Empty<RelationshipMemoryTagScore>());
+        }
+
+        private CompanionTacticalSupportTuning GetCurrentTuning()
+        {
+            return CompanionTacticalSupportRules.Evaluate(BuildProfile(), CurrentTendency);
         }
 
         private void SubscribeToPlayerHealth()
@@ -298,7 +308,9 @@ namespace AICompanionRoguelike.Companion
             }
 
             float healthRatio = health.MaxHealth > 0f ? health.CurrentHealth / health.MaxHealth : 0f;
-            if (healthRatio <= lowHealthGuardThreshold)
+            CompanionTacticalSupportTuning tuning = GetCurrentTuning();
+            float effectiveGuardThreshold = Mathf.Max(lowHealthGuardThreshold, tuning.GuardTriggerHealthRatio);
+            if (healthRatio <= effectiveGuardThreshold)
             {
                 TryActivateGuard("Low Health Guard");
             }
