@@ -1031,37 +1031,17 @@ MonoBehaviour:
   playerHealth: {fileID: 1337357274}
   branchChoiceBuff: {fileID: 1337357278}
   companionRelationship: {fileID: 313638958}
+  tacticalSupport: {fileID: 0}
   branchEventRoomController: {fileID: 736547108}
   panelRect:
     serializedVersion: 2
     x: 16
     y: 16
-    width: 330
-    height: 210
+    width: 430
+    height: 230
   toastDuration: 3
   showPanel: 1
   showToast: 1
---- !u!114 &1302422687
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1302422682}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3748eef6baf34f098561519ea7d47163, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.CompanionBuildChoiceUI
-  panelRect:
-    serializedVersion: 2
-    x: 360
-    y: 72
-    width: 440
-    height: 260
-  showPanel: 1
-  resetBuildOnEnable: 1
-  logSelection: 1
 --- !u!4 &1302422684
 Transform:
   m_ObjectHideFlags: 0
@@ -1131,6 +1111,29 @@ MonoBehaviour:
   successColor: {r: 0.35, g: 1, b: 0.45, a: 1}
   failureColor: {r: 1, g: 0.32, b: 0.22, a: 1}
   ignoredColor: {r: 1, g: 0.78, b: 0.28, a: 1}
+--- !u!114 &1302422687
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302422682}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3748eef6baf34f098561519ea7d47163, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.CompanionBuildChoiceUI
+  panelRect:
+    serializedVersion: 2
+    x: 360
+    y: 72
+    width: 440
+    height: 260
+  showPanel: 1
+  selectionDialogue: {fileID: 0}
+  resetBuildOnEnable: 1
+  logSelection: 1
+  selectionFeedbackPriority: 6
 --- !u!1 &1337357267
 GameObject:
   m_ObjectHideFlags: 0

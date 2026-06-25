@@ -1,6 +1,9 @@
 using System;
 using System.Reflection;
+using AICompanionRoguelike.Companion;
+using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.UI;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -118,6 +121,84 @@ namespace AICompanionRoguelike.Tests
             }
         }
 
+        [Test]
+        public void HudSummaryNamesSelectedBuildAndReadableEffect()
+        {
+            string guardianSummary = BuildHudSummary("Guardian");
+            string linkSummary = BuildHudSummary("Link");
+
+            Assert.That(guardianSummary, Does.Contain("AI Build"));
+            Assert.That(guardianSummary, Does.Contain("Guard"));
+            Assert.That(linkSummary, Does.Contain("AI Build"));
+            Assert.That(linkSummary, Does.Contain("QTE"));
+        }
+
+        [Test]
+        public void BuildChoiceSelectionSpeaksReadableTendencyLine()
+        {
+            GameObject companionObject = new GameObject("CompanionBuildChoiceSpeechTest");
+
+            try
+            {
+                CompanionRelationship relationship = companionObject.AddComponent<CompanionRelationship>();
+                relationship.SetRelationshipSnapshot(
+                    50,
+                    50,
+                    Array.Empty<RelationshipMemoryTagScore>(),
+                    updateSessionState: false);
+                CompanionSpeechBubbleUI speechBubble = companionObject.AddComponent<CompanionSpeechBubbleUI>();
+                companionObject.AddComponent<CompanionCombatDialogueController>();
+                CompanionBuildChoiceUI ui = companionObject.AddComponent<CompanionBuildChoiceUI>();
+
+                ui.SelectTendency(CompanionSkillTendency.Link);
+
+                Assert.That(speechBubble.CurrentMessage, Does.Contain("Link"));
+                Assert.That(speechBubble.CurrentMessage, Does.Contain("QTE"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(companionObject);
+            }
+        }
+
+        [Test]
+        public void GuardianGuardActivationSpeaksBuildSpecificFeedback()
+        {
+            GameObject playerObject = new GameObject("PlayerGuardianBuildFeedbackTest");
+            GameObject companionObject = new GameObject("CompanionGuardianBuildFeedbackTest");
+
+            try
+            {
+                SetCurrentTendency("Guardian");
+
+                HealthComponent playerHealth = playerObject.AddComponent<HealthComponent>();
+                playerHealth.SetMaxHealth(100f, true);
+                PlayerBossSupportShield shield = playerObject.AddComponent<PlayerBossSupportShield>();
+
+                CompanionRelationship relationship = companionObject.AddComponent<CompanionRelationship>();
+                relationship.SetRelationshipSnapshot(
+                    50,
+                    50,
+                    Array.Empty<RelationshipMemoryTagScore>(),
+                    updateSessionState: false);
+                CompanionSpeechBubbleUI speechBubble = companionObject.AddComponent<CompanionSpeechBubbleUI>();
+                CompanionCombatDialogueController dialogue = companionObject.AddComponent<CompanionCombatDialogueController>();
+                CompanionTacticalSupport support = companionObject.AddComponent<CompanionTacticalSupport>();
+                support.Configure(playerHealth, relationship, shield, null, dialogue);
+
+                bool activated = support.TryActivateGuard("Guardian Build Test");
+
+                Assert.True(activated);
+                Assert.That(speechBubble.CurrentMessage, Does.Contain("Guardian"));
+                Assert.That(speechBubble.CurrentMessage, Does.Contain("Guard"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(companionObject);
+                UnityEngine.Object.DestroyImmediate(playerObject);
+            }
+        }
+
         private static object EvaluateTacticalSupport(CompanionRelationshipProfileSnapshot profile, string tendencyName)
         {
             Type rulesType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionTacticalSupportRules");
@@ -157,6 +238,14 @@ namespace AICompanionRoguelike.Tests
         {
             Type tendencyType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionSkillTendency");
             return Enum.Parse(tendencyType, tendencyName);
+        }
+
+        private static string BuildHudSummary(string tendencyName)
+        {
+            Type rulesType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionSkillTendencyRules");
+            MethodInfo method = rulesType.GetMethod("GetHudSummaryLine", BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(method, "CompanionSkillTendencyRules should expose GetHudSummaryLine.");
+            return (string)method.Invoke(null, new[] { ParseTendency(tendencyName) });
         }
 
         private static Type RequireRuntimeType(string fullName)

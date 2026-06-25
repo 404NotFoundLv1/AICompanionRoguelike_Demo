@@ -139,7 +139,7 @@ namespace AICompanionRoguelike.Companion
 
             if (dialogue != null)
             {
-                dialogue.TrySpeak(CompanionDialogueEventType.TacticalGuard, 4);
+                TrySpeakBuildActivationFeedback(CompanionDialogueEventType.TacticalGuard, 5);
             }
 
             GuardActivated?.Invoke(this, sourceLabel);
@@ -209,7 +209,7 @@ namespace AICompanionRoguelike.Companion
 
             if (dialogue != null)
             {
-                dialogue.TrySpeak(CompanionDialogueEventType.TacticalSuppression, 3);
+                TrySpeakBuildActivationFeedback(CompanionDialogueEventType.TacticalSuppression, 4);
             }
 
             SuppressionActivated?.Invoke(this, targetHealth);
@@ -226,10 +226,14 @@ namespace AICompanionRoguelike.Companion
 
         public string GetStatusLabel()
         {
-            string tendency = CompanionSkillTendencyRules.GetDisplayName(CurrentTendency);
+            return GetCooldownStatusLabel();
+        }
+
+        public string GetCooldownStatusLabel()
+        {
             string guard = IsGuardOnCooldown ? $"Guard {guardCooldownTimer:0.0}s" : "Guard Ready";
             string suppress = IsSuppressionOnCooldown ? $"Suppress {suppressionCooldownTimer:0.0}s" : "Suppress Ready";
-            return $"AI Tactics: {tendency} | {guard} | {suppress}";
+            return $"AI Tactics: {guard} | {suppress}";
         }
 
         private void ResolveReferences()
@@ -270,6 +274,22 @@ namespace AICompanionRoguelike.Companion
         private CompanionTacticalSupportTuning GetCurrentTuning()
         {
             return CompanionTacticalSupportRules.Evaluate(BuildProfile(), CurrentTendency);
+        }
+
+        private void TrySpeakBuildActivationFeedback(CompanionDialogueEventType eventType, int priority)
+        {
+            if (dialogue == null)
+            {
+                return;
+            }
+
+            string buildLine = CompanionSkillTendencyRules.GetTacticalActivationLine(CurrentTendency, eventType);
+            if (!string.IsNullOrWhiteSpace(buildLine) && dialogue.TryShowLine(buildLine, priority))
+            {
+                return;
+            }
+
+            dialogue.TrySpeak(eventType, priority);
         }
 
         private void SubscribeToPlayerHealth()

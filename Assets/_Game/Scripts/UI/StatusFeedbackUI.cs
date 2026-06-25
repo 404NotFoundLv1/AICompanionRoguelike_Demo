@@ -171,6 +171,7 @@ namespace AICompanionRoguelike.UI
             GUILayout.Space(4f);
             GUILayout.Label(BuildRelationshipLine());
             GUILayout.Label(BuildMemoryLine());
+            GUILayout.Label(BuildCompanionBuildLine());
             GUILayout.Label(BuildTacticalSupportLine());
 
             if (branchEventRoomController != null && branchEventRoomController.IsLoadingBranchScene)
@@ -249,7 +250,15 @@ namespace AICompanionRoguelike.UI
 
         private string BuildTacticalSupportLine()
         {
-            return tacticalSupport != null ? tacticalSupport.GetStatusLabel() : "AI Tactics: --";
+            return tacticalSupport != null ? tacticalSupport.GetCooldownStatusLabel() : "AI Tactics: --";
+        }
+
+        private string BuildCompanionBuildLine()
+        {
+            CompanionSkillTendency tendency = tacticalSupport != null
+                ? tacticalSupport.CurrentTendency
+                : CompanionRunBuildState.CurrentTendency;
+            return CompanionSkillTendencyRules.GetHudSummaryLine(tendency);
         }
 
         private void DrawToast()

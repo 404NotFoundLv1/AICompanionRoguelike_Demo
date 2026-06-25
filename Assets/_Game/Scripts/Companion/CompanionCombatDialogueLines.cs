@@ -88,6 +88,14 @@ namespace AICompanionRoguelike.Companion
 
         private static string BuildQteStartedLine(CompanionRelationshipProfileSnapshot profile)
         {
+            string buildLine = CompanionSkillTendencyRules.GetTacticalActivationLine(
+                CompanionRunBuildState.CurrentTendency,
+                CompanionDialogueEventType.QTEStarted);
+            if (!string.IsNullOrWhiteSpace(buildLine))
+            {
+                return buildLine;
+            }
+
             switch (profile.Tone)
             {
                 case CompanionDialogueTone.Guarded:

@@ -134,7 +134,12 @@ namespace AICompanionRoguelike.Tests
         private static object EvaluateTacticalSupport(CompanionRelationshipProfileSnapshot profile)
         {
             Type rulesType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionTacticalSupportRules");
-            MethodInfo evaluateMethod = rulesType.GetMethod("Evaluate", BindingFlags.Public | BindingFlags.Static);
+            MethodInfo evaluateMethod = rulesType.GetMethod(
+                "Evaluate",
+                BindingFlags.Public | BindingFlags.Static,
+                null,
+                new[] { typeof(CompanionRelationshipProfileSnapshot) },
+                null);
             Assert.NotNull(evaluateMethod, "CompanionTacticalSupportRules should expose Evaluate.");
             return evaluateMethod.Invoke(null, new object[] { profile });
         }

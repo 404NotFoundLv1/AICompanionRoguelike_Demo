@@ -11,8 +11,10 @@ namespace AICompanionRoguelike.UI
         [SerializeField] private bool showPanel = true;
 
         [Header("Run Build")]
+        [SerializeField] private CompanionCombatDialogueController selectionDialogue;
         [SerializeField] private bool resetBuildOnEnable = true;
         [SerializeField] private bool logSelection = true;
+        [SerializeField, Min(0)] private int selectionFeedbackPriority = 6;
 
         private bool isOpen;
 
@@ -20,6 +22,8 @@ namespace AICompanionRoguelike.UI
 
         private void OnEnable()
         {
+            ResolveReferences();
+
             if (resetBuildOnEnable)
             {
                 CompanionRunBuildState.Reset();
@@ -63,9 +67,12 @@ namespace AICompanionRoguelike.UI
 
         public void SelectTendency(CompanionSkillTendency tendency)
         {
+            ResolveReferences();
+
             CompanionSkillTendency selectedTendency = CompanionSkillTendencyRules.NormalizeSelectable(tendency);
             CompanionRunBuildState.SetTendency(selectedTendency);
             isOpen = false;
+            SpeakSelectionFeedback(selectedTendency);
 
             if (logSelection)
             {
@@ -73,6 +80,30 @@ namespace AICompanionRoguelike.UI
                     $"Companion run build selected: {CompanionSkillTendencyRules.GetDisplayName(selectedTendency)}",
                     this);
             }
+        }
+
+        private void ResolveReferences()
+        {
+            selectionDialogue = selectionDialogue != null
+                ? selectionDialogue
+                : GetComponent<CompanionCombatDialogueController>();
+
+            if (selectionDialogue == null)
+            {
+                selectionDialogue = FindAnyObjectByType<CompanionCombatDialogueController>();
+            }
+        }
+
+        private void SpeakSelectionFeedback(CompanionSkillTendency tendency)
+        {
+            if (selectionDialogue == null)
+            {
+                return;
+            }
+
+            selectionDialogue.TryShowLine(
+                CompanionSkillTendencyRules.GetSelectionLine(tendency),
+                selectionFeedbackPriority);
         }
 
         private void OnGUI()
