@@ -11,8 +11,13 @@ namespace AICompanionRoguelike.Enemy
 
         private EnemyController2D owner;
         private float cooldownTimer;
+        private float tacticalSuppressionTimer;
+        private float tacticalDamageMultiplier = 1f;
 
         public float Damage => damage;
+        public float CurrentDamage => damage * TacticalDamageMultiplier;
+        public bool IsTacticallySuppressed => tacticalSuppressionTimer > 0f;
+        public float TacticalDamageMultiplier => IsTacticallySuppressed ? tacticalDamageMultiplier : 1f;
 
         private void Awake()
         {
@@ -25,6 +30,8 @@ namespace AICompanionRoguelike.Enemy
             {
                 cooldownTimer -= Time.deltaTime;
             }
+
+            TickTacticalSuppression(Time.deltaTime);
         }
 
         public void SetOwner(EnemyController2D enemyOwner)
@@ -55,16 +62,45 @@ namespace AICompanionRoguelike.Enemy
                 return;
             }
 
-            DamageInfo damageInfo = new DamageInfo(damage, DamageSourceType.Enemy, gameObject);
+            float currentDamage = CurrentDamage;
+            DamageInfo damageInfo = new DamageInfo(currentDamage, DamageSourceType.Enemy, gameObject);
             targetHealth.TakeDamage(damageInfo);
             cooldownTimer = cooldown;
 
-            Debug.Log($"{name} attacked {target.name} for {damage} damage. Target HP: {targetHealth.CurrentHealth}/{targetHealth.MaxHealth}", this);
+            Debug.Log($"{name} attacked {target.name} for {currentDamage} damage. Target HP: {targetHealth.CurrentHealth}/{targetHealth.MaxHealth}", this);
         }
 
         public void MultiplyDamage(float multiplier)
         {
             damage = Mathf.Max(0f, damage * Mathf.Max(0f, multiplier));
+        }
+
+        public void ApplyTacticalSuppression(float duration, float damageMultiplier)
+        {
+            if (duration <= 0f)
+            {
+                return;
+            }
+
+            tacticalSuppressionTimer = Mathf.Max(tacticalSuppressionTimer, duration);
+            tacticalDamageMultiplier = Mathf.Min(
+                IsTacticallySuppressed ? tacticalDamageMultiplier : 1f,
+                Mathf.Clamp(damageMultiplier, 0.05f, 1f));
+        }
+
+        public void TickTacticalSuppression(float deltaTime)
+        {
+            if (tacticalSuppressionTimer <= 0f)
+            {
+                tacticalDamageMultiplier = 1f;
+                return;
+            }
+
+            tacticalSuppressionTimer = Mathf.Max(0f, tacticalSuppressionTimer - Mathf.Max(0f, deltaTime));
+            if (tacticalSuppressionTimer <= 0f)
+            {
+                tacticalDamageMultiplier = 1f;
+            }
         }
 
         private void OnDrawGizmosSelected()

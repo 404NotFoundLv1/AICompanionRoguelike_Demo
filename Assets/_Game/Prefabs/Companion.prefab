@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 8272299832696690291}
   - component: {fileID: 2193264567010108182}
   - component: {fileID: 6508781920453668843}
+  - component: {fileID: 7344878927605449316}
   m_Layer: 10
   m_Name: Companion
   m_TagString: Untagged
@@ -353,3 +354,28 @@ MonoBehaviour:
   lowHealthThreshold: 0.35
   lowHealthRepeatCooldown: 7
   logDialogue: 0
+--- !u!114 &7344878927605449316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729427289006278405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da92d11131c54a01a2b5b1a6f0f819f2, type: 3}
+  m_Name: ""
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionTacticalSupport
+  relationship: {fileID: 5184058846357079444}
+  sensor: {fileID: 403165230550561590}
+  dialogue: {fileID: 6508781920453668843}
+  playerHealth: {fileID: 0}
+  playerShield: {fileID: 0}
+  lowHealthGuardThreshold: 0.35
+  suppressionHealthThreshold: 0.55
+  suppressionMinimumHealthThreshold: 0.22
+  suppressionRange: 4.8
+  recordSupportMemory: 1
+  guardAffectionDelta: 1
+  suppressionTrustDelta: 1
+  logSupport: 0

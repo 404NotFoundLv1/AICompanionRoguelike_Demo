@@ -31,6 +31,8 @@ namespace AICompanionRoguelike.Enemy
         private Rigidbody2D body;
         private EnemyState currentState = EnemyState.Idle;
         private int facingDirection = -1;
+        private float tacticalSuppressionTimer;
+        private float tacticalMoveSpeedMultiplier = 1f;
 
         public static event Action<EnemyController2D> OnEnemyDeath;
         public event Action<EnemyController2D, EnemyState> StateChanged;
@@ -38,6 +40,9 @@ namespace AICompanionRoguelike.Enemy
         public EnemyState CurrentState => currentState;
         public int FacingDirection => facingDirection;
         public Transform Target => target;
+        public float CurrentMoveSpeed => moveSpeed * TacticalMoveSpeedMultiplier;
+        public bool IsTacticallySuppressed => tacticalSuppressionTimer > 0f;
+        public float TacticalMoveSpeedMultiplier => IsTacticallySuppressed ? tacticalMoveSpeedMultiplier : 1f;
 
         private void Reset()
         {
@@ -75,6 +80,8 @@ namespace AICompanionRoguelike.Enemy
 
         private void FixedUpdate()
         {
+            TickTacticalSuppression(Time.fixedDeltaTime);
+
             if (currentState == EnemyState.Dead || target == null)
             {
                 StopMoving();
@@ -118,7 +125,7 @@ namespace AICompanionRoguelike.Enemy
             }
 
             Vector2 direction = ((Vector2)target.position - body.position).normalized;
-            body.linearVelocity = new Vector2(direction.x * moveSpeed, body.linearVelocity.y);
+            body.linearVelocity = new Vector2(direction.x * CurrentMoveSpeed, body.linearVelocity.y);
         }
 
         private void StopMoving()
@@ -157,6 +164,34 @@ namespace AICompanionRoguelike.Enemy
             StopMoving();
             OnEnemyDeath?.Invoke(this);
             Debug.Log($"{name} died. Source: {damageInfo.sourceType}", this);
+        }
+
+        public void ApplyTacticalSuppression(float duration, float moveSpeedMultiplier)
+        {
+            if (duration <= 0f)
+            {
+                return;
+            }
+
+            tacticalSuppressionTimer = Mathf.Max(tacticalSuppressionTimer, duration);
+            tacticalMoveSpeedMultiplier = Mathf.Min(
+                IsTacticallySuppressed ? tacticalMoveSpeedMultiplier : 1f,
+                Mathf.Clamp(moveSpeedMultiplier, 0.05f, 1f));
+        }
+
+        public void TickTacticalSuppression(float deltaTime)
+        {
+            if (tacticalSuppressionTimer <= 0f)
+            {
+                tacticalMoveSpeedMultiplier = 1f;
+                return;
+            }
+
+            tacticalSuppressionTimer = Mathf.Max(0f, tacticalSuppressionTimer - Mathf.Max(0f, deltaTime));
+            if (tacticalSuppressionTimer <= 0f)
+            {
+                tacticalMoveSpeedMultiplier = 1f;
+            }
         }
 
         private void OnDrawGizmosSelected()

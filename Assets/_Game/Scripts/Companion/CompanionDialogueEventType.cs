@@ -11,6 +11,8 @@ namespace AICompanionRoguelike.Companion
         QTEIgnored,
         PlayerHit,
         PlayerLowHealth,
+        TacticalGuard,
+        TacticalSuppression,
         BossSupportActivated,
         BossSupportBlocked
     }

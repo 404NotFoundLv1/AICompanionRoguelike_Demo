@@ -1,4 +1,5 @@
 using System.Text;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.Roguelike;
@@ -12,6 +13,7 @@ namespace AICompanionRoguelike.UI
         [SerializeField] private HealthComponent playerHealth;
         [SerializeField] private PlayerBranchChoiceBuff branchChoiceBuff;
         [SerializeField] private CompanionRelationship companionRelationship;
+        [SerializeField] private CompanionTacticalSupport tacticalSupport;
         [SerializeField] private BranchEventRoomController branchEventRoomController;
 
         [Header("Layout")]
@@ -76,6 +78,11 @@ namespace AICompanionRoguelike.UI
             if (companionRelationship == null)
             {
                 companionRelationship = FindAnyObjectByType<CompanionRelationship>();
+            }
+
+            if (tacticalSupport == null)
+            {
+                tacticalSupport = FindAnyObjectByType<CompanionTacticalSupport>();
             }
 
             if (branchEventRoomController == null)
@@ -164,6 +171,7 @@ namespace AICompanionRoguelike.UI
             GUILayout.Space(4f);
             GUILayout.Label(BuildRelationshipLine());
             GUILayout.Label(BuildMemoryLine());
+            GUILayout.Label(BuildTacticalSupportLine());
 
             if (branchEventRoomController != null && branchEventRoomController.IsLoadingBranchScene)
             {
@@ -237,6 +245,11 @@ namespace AICompanionRoguelike.UI
             memoryBuilder.Append(" ");
             memoryBuilder.Append(profile.DominantMemoryScore);
             return memoryBuilder.ToString();
+        }
+
+        private string BuildTacticalSupportLine()
+        {
+            return tacticalSupport != null ? tacticalSupport.GetStatusLabel() : "AI Tactics: --";
         }
 
         private void DrawToast()

@@ -26,6 +26,10 @@ namespace AICompanionRoguelike.Companion
                     return BuildPlayerHitLine(profile);
                 case CompanionDialogueEventType.PlayerLowHealth:
                     return BuildPlayerLowHealthLine(profile);
+                case CompanionDialogueEventType.TacticalGuard:
+                    return BuildTacticalGuardLine(profile);
+                case CompanionDialogueEventType.TacticalSuppression:
+                    return BuildTacticalSuppressionLine(profile);
                 case CompanionDialogueEventType.BossSupportActivated:
                     return "AI: Shield link is active. Take the opening.";
                 case CompanionDialogueEventType.BossSupportBlocked:
@@ -167,6 +171,35 @@ namespace AICompanionRoguelike.Companion
                 default:
                     return "AI: Low health. Make space now.";
             }
+        }
+
+        private static string BuildTacticalGuardLine(CompanionRelationshipProfileSnapshot profile)
+        {
+            if (profile.HasDominantMemory && profile.DominantMemoryTag == RelationshipMemoryTag.Protected)
+            {
+                return "AI: Guard up. Stay behind me, like before.";
+            }
+
+            return profile.Tier == CompanionBondTier.Distant
+                ? "AI: Weak guard up. Do not waste it."
+                : "AI: Guard up. Breathe and reset.";
+        }
+
+        private static string BuildTacticalSuppressionLine(CompanionRelationshipProfileSnapshot profile)
+        {
+            if (profile.HasDominantMemory && profile.DominantMemoryTag == RelationshipMemoryTag.Brave)
+            {
+                return "AI: I will pin it down. Take the brave opening.";
+            }
+
+            if (profile.HasDominantMemory && profile.DominantMemoryTag == RelationshipMemoryTag.Reliable)
+            {
+                return "AI: Suppressing target. Dependable timing, now.";
+            }
+
+            return profile.Tier == CompanionBondTier.Synchronized
+                ? "AI: Suppression on target. Your turn."
+                : "AI: I can slow it. Find your hit.";
         }
 
         private static string AddMemoryFollowUp(
