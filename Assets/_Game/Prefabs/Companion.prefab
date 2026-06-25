@@ -19,6 +19,8 @@ GameObject:
   - component: {fileID: 3088733922607995374}
   - component: {fileID: 5184058846357079444}
   - component: {fileID: 8272299832696690291}
+  - component: {fileID: 2193264567010108182}
+  - component: {fileID: 6508781920453668843}
   m_Layer: 10
   m_Name: Companion
   m_TagString: Untagged
@@ -183,7 +185,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0a9441f9c272f9c4d94eb9d39afce718, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.HealthComponent
   maxHealth: 100
   destroyOnDeath: 0
@@ -197,7 +199,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 02d7eacf05fa92243958251d961106ff, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionMovement
   target: {fileID: 0}
   targetMovement: {fileID: 0}
@@ -310,3 +312,44 @@ MonoBehaviour:
   relationship: {fileID: 0}
   emitOnStart: 1
   logFeedback: 1
+--- !u!114 &2193264567010108182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729427289006278405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56d97942addd4aa99e9e4c98c4e4189d, type: 3}
+  m_Name: ""
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.CompanionSpeechBubbleUI
+  target: {fileID: 5114151113306494023}
+  worldOffset: {x: 0, y: 1.55, z: 0}
+  bubbleSize: {x: 340, y: 72}
+  defaultVisibleDuration: 4
+  screenMargin: 10
+  bubbleColor: {r: 0.08, g: 0.1, b: 0.12, a: 0.92}
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &6508781920453668843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729427289006278405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41741704503542f6a7c9475db0f83048, type: 3}
+  m_Name: ""
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionCombatDialogueController
+  relationship: {fileID: 5184058846357079444}
+  speechBubble: {fileID: 2193264567010108182}
+  qteManager: {fileID: 0}
+  playerHealth: {fileID: 0}
+  roomManager: {fileID: 0}
+  lineDuration: 4
+  globalCooldown: 2.5
+  lowHealthThreshold: 0.35
+  lowHealthRepeatCooldown: 7
+  logDialogue: 0

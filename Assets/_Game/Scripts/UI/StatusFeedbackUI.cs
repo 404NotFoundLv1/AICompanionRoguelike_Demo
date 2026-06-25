@@ -1,6 +1,5 @@
 using System.Text;
 using AICompanionRoguelike.Combat;
-using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.Roguelike;
 using UnityEngine;
@@ -32,7 +31,6 @@ namespace AICompanionRoguelike.UI
             ResolveReferences();
             SubscribeToBranchEventRoom();
             CompanionRelationship.AnyRelationshipChanged += HandleAnyRelationshipChanged;
-            CompanionRunFeedback.FeedbackRaised += HandleCompanionFeedbackRaised;
         }
 
         private void Start()
@@ -59,7 +57,6 @@ namespace AICompanionRoguelike.UI
         {
             UnsubscribeFromBranchEventRoom();
             CompanionRelationship.AnyRelationshipChanged -= HandleAnyRelationshipChanged;
-            CompanionRunFeedback.FeedbackRaised -= HandleCompanionFeedbackRaised;
         }
 
         private void ResolveReferences()
@@ -136,14 +133,6 @@ namespace AICompanionRoguelike.UI
 
             ShowToast(
                 $"{change.sourceLabel}: Trust {change.previousTrust}->{change.currentTrust} ({change.trustDelta:+#;-#;0}), Affection {change.previousAffection}->{change.currentAffection} ({change.affectionDelta:+#;-#;0}), Memory {change.memoryTag}");
-        }
-
-        private void HandleCompanionFeedbackRaised(CompanionRunFeedback source, string message)
-        {
-            if (showToast && !string.IsNullOrEmpty(message))
-            {
-                ShowToast(message);
-            }
         }
 
         private void ShowToast(string message)
