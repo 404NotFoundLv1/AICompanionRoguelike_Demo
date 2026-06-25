@@ -407,9 +407,18 @@ namespace AICompanionRoguelike.Tests
 
         private static object Invoke(object target, string methodName, params object[] parameters)
         {
+            Type[] parameterTypes = new Type[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                parameterTypes[i] = parameters[i].GetType();
+            }
+
             MethodInfo method = target.GetType().GetMethod(
                 methodName,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                parameterTypes,
+                null);
             Assert.NotNull(method, $"{target.GetType().Name} should expose {methodName}.");
             return method.Invoke(target, parameters);
         }

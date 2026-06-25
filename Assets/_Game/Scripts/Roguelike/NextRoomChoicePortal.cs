@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using AICompanionRoguelike.Character;
 using UnityEngine;
@@ -15,8 +14,8 @@ namespace AICompanionRoguelike.Roguelike
         [Header("Interaction")]
         [SerializeField] private Key interactKey = Key.E;
         [SerializeField] private bool showInteractionPrompt = true;
-        [SerializeField] private string promptText = "按 E 选择下一关";
-        [SerializeField] private string choiceTitle = "选择下一关";
+        [SerializeField] private string promptText = "Press E to choose route";
+        [SerializeField] private string choiceTitle = "Choose next route";
 
         [Header("Visual")]
         [SerializeField] private Vector3 portalPosition = new Vector3(6.45f, -1.15f, -0.1f);
@@ -24,6 +23,7 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private Color readyColor = new Color(0.35f, 1f, 0.6f, 0.95f);
 
         private readonly List<RoomType> offeredChoices = new List<RoomType>(4);
+        private readonly List<RoomChoicePreview> offeredPreviews = new List<RoomChoicePreview>(4);
         private SpriteRenderer portalRenderer;
         private Collider2D portalCollider;
         private bool isVisible;
@@ -34,6 +34,7 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsPlayerInRange => playerInRange;
         public bool IsChoiceOpen => isChoiceOpen;
         public IReadOnlyList<RoomType> OfferedChoices => offeredChoices;
+        public IReadOnlyList<RoomChoicePreview> OfferedPreviews => offeredPreviews;
 
         private void Reset()
         {
@@ -186,13 +187,18 @@ namespace AICompanionRoguelike.Roguelike
         private void HandleRoomChoicesPrepared(RunManager manager, IReadOnlyList<RoomType> choices)
         {
             offeredChoices.Clear();
+            offeredPreviews.Clear();
+            IReadOnlyList<RoomChoicePreview> previews = manager != null ? manager.CurrentRoomChoicePreviews : null;
 
             for (int i = 0; i < choices.Count; i++)
             {
-                if (choices[i] != RoomType.BranchEventRoom)
+                if (choices[i] == RoomType.BranchEventRoom)
                 {
-                    offeredChoices.Add(choices[i]);
+                    continue;
                 }
+
+                offeredChoices.Add(choices[i]);
+                offeredPreviews.Add(GetPreviewForChoice(previews, choices[i], i));
             }
 
             transform.position = portalPosition;
@@ -201,6 +207,8 @@ namespace AICompanionRoguelike.Roguelike
 
         private void HandleRoomChoicesCleared(RunManager manager)
         {
+            offeredChoices.Clear();
+            offeredPreviews.Clear();
             SetVisible(false);
         }
 
@@ -292,8 +300,8 @@ namespace AICompanionRoguelike.Roguelike
 
         private void DrawChoicePanel()
         {
-            const float width = 360f;
-            const float height = 230f;
+            const float width = 460f;
+            float height = Mathf.Min(420f, 128f + offeredChoices.Count * 82f);
             Rect rect = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
 
             GUILayout.BeginArea(rect, GUI.skin.box);
@@ -302,15 +310,23 @@ namespace AICompanionRoguelike.Roguelike
 
             for (int i = 0; i < offeredChoices.Count; i++)
             {
-                string label = $"[{i + 1}] {GetRoomLabel(offeredChoices[i])}";
+                RoomChoicePreview preview = i < offeredPreviews.Count
+                    ? offeredPreviews[i]
+                    : CreateFallbackPreview(offeredChoices[i]);
+                string label = $"[{i + 1}] {preview.Title}";
                 if (GUILayout.Button(label))
                 {
                     SelectChoice(i);
                 }
+
+                GUILayout.Label(preview.ThreatPreview);
+                GUILayout.Label(preview.RewardPreview);
+                GUILayout.Label(preview.RouteNote);
+                GUILayout.Space(6f);
             }
 
             GUILayout.Space(6f);
-            if (GUILayout.Button("[Esc] 关闭"))
+            if (GUILayout.Button("[Esc] Close"))
             {
                 isChoiceOpen = false;
             }
@@ -318,16 +334,48 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.EndArea();
         }
 
-        private static string GetRoomLabel(RoomType roomType)
+        private static RoomChoicePreview GetPreviewForChoice(
+            IReadOnlyList<RoomChoicePreview> previews,
+            RoomType roomType,
+            int index)
         {
-            return roomType switch
+            if (previews != null && index >= 0 && index < previews.Count && previews[index].RoomType == roomType)
             {
-                RoomType.BattleRoom => "战斗房",
-                RoomType.EliteRoom => "精英房",
-                RoomType.SafeRoom => "安全房",
-                RoomType.ShopRoom => "商店房",
+                return previews[index];
+            }
+
+            if (previews != null)
+            {
+                for (int i = 0; i < previews.Count; i++)
+                {
+                    if (previews[i].RoomType == roomType)
+                    {
+                        return previews[i];
+                    }
+                }
+            }
+
+            return CreateFallbackPreview(roomType);
+        }
+
+        private static RoomChoicePreview CreateFallbackPreview(RoomType roomType)
+        {
+            string title = roomType switch
+            {
+                RoomType.BattleRoom => "Battle Room",
+                RoomType.EliteRoom => "Elite Room",
+                RoomType.SafeRoom => "Safe Room",
+                RoomType.ShopRoom => "Supply Room",
+                RoomType.BossRoom => "Boss Room",
                 _ => roomType.ToString()
             };
+
+            return new RoomChoicePreview(
+                roomType,
+                title,
+                "Threat: unknown.",
+                "Reward: unknown.",
+                "Route: scout ahead.");
         }
     }
 }

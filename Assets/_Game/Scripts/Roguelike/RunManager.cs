@@ -64,6 +64,9 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(1f)] private float moveSpeedRewardMultiplier = 1.1f;
         [SerializeField, Range(0.1f, 1f)] private float companionCooldownRewardMultiplier = 0.85f;
         [SerializeField, Min(0f)] private float bondRescueHealthReward = 10f;
+        [SerializeField, Min(0)] private int eliteBonusRewardChoices = 1;
+        [SerializeField, Min(1)] private int shopRewardChoiceCount = 2;
+        [SerializeField, Min(0f)] private float safeRoomHealAmount = 25f;
 
         [Header("Debug")]
         [SerializeField] private bool logRunMessages = true;
@@ -73,6 +76,7 @@ namespace AICompanionRoguelike.Roguelike
         private bool waitingForReward;
         private bool runCompleted;
         private readonly List<RoomType> currentRoomChoices = new List<RoomType>(4);
+        private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
 
         public static event Action<RunManager> AnyRunStarted;
@@ -91,6 +95,7 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsRunCompleted => runCompleted;
         public int RoomsToCompleteRun => roomsToCompleteRun;
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
+        public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
 
         private void Reset()
@@ -208,6 +213,7 @@ namespace AICompanionRoguelike.Roguelike
 
             int roomNumber = roomIndex + 1;
 
+            ApplyRoomEntryEffect(nextRoomType);
             roomManager.EnterRoom(nextRoomType, roomNumber);
             RoomAdvanced?.Invoke(this, nextRoomType, roomNumber);
 
@@ -287,7 +293,7 @@ namespace AICompanionRoguelike.Roguelike
 
             if (ShouldOfferReward(roomType))
             {
-                PrepareRewardChoices();
+                PrepareRewardChoices(roomType);
                 return;
             }
 
@@ -349,7 +355,7 @@ namespace AICompanionRoguelike.Roguelike
         {
             return !runCompleted
                 && useRoomRewards
-                && (roomType == RoomType.BattleRoom || roomType == RoomType.EliteRoom);
+                && (roomType == RoomType.BattleRoom || roomType == RoomType.EliteRoom || roomType == RoomType.ShopRoom);
         }
 
         private bool ShouldCompleteRun(int roomNumber)
@@ -415,11 +421,16 @@ namespace AICompanionRoguelike.Roguelike
 
         private void PrepareRewardChoices()
         {
+            PrepareRewardChoices(CurrentRoomType);
+        }
+
+        private void PrepareRewardChoices(RoomType sourceRoomType)
+        {
             waitingForReward = true;
             currentRewardChoices.Clear();
 
             List<RunRewardType> candidates = BuildRewardCandidateList();
-            int targetCount = Mathf.Min(rewardChoiceCount, candidates.Count);
+            int targetCount = GetRewardChoiceTargetCount(sourceRoomType, candidates.Count);
             RunRewardType? buildRewardType = GetCurrentBuildRewardType();
             if (buildRewardType.HasValue && currentRewardChoices.Count < targetCount)
             {
@@ -440,6 +451,27 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             RewardChoicesPrepared?.Invoke(this, currentRewardChoices);
+        }
+
+        private int GetRewardChoiceTargetCount(RoomType sourceRoomType, int candidateCount)
+        {
+            if (candidateCount <= 0)
+            {
+                return 0;
+            }
+
+            int targetCount = rewardChoiceCount;
+            switch (sourceRoomType)
+            {
+                case RoomType.EliteRoom:
+                    targetCount += eliteBonusRewardChoices;
+                    break;
+                case RoomType.ShopRoom:
+                    targetCount = shopRewardChoiceCount;
+                    break;
+            }
+
+            return Mathf.Min(Mathf.Max(1, targetCount), candidateCount);
         }
 
         private void ClearRewardChoices()
@@ -565,6 +597,29 @@ namespace AICompanionRoguelike.Roguelike
             CompanionRunBuildState.AddUpgrade(tendency);
         }
 
+        private void ApplyRoomEntryEffect(RoomType roomType)
+        {
+            if (roomType != RoomType.SafeRoom)
+            {
+                return;
+            }
+
+            GameObject player = GameObject.Find("Player");
+            HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
+            if (health == null)
+            {
+                return;
+            }
+
+            float before = health.CurrentHealth;
+            health.Heal(safeRoomHealAmount);
+
+            if (logRunMessages && health.CurrentHealth > before)
+            {
+                Debug.Log($"Safe room restored {health.CurrentHealth - before:0} HP.", this);
+            }
+        }
+
         private void ApplyMaxHealthReward(GameObject player)
         {
             HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
@@ -636,6 +691,8 @@ namespace AICompanionRoguelike.Roguelike
                 }
             }
 
+            RefreshCurrentRoomChoicePreviews();
+
             if (logRunMessages)
             {
                 Debug.Log($"Next room choices ready: {string.Join(", ", currentRoomChoices)}", this);
@@ -646,13 +703,84 @@ namespace AICompanionRoguelike.Roguelike
 
         private void ClearPreparedRoomChoices()
         {
-            if (currentRoomChoices.Count == 0)
+            if (currentRoomChoices.Count == 0 && currentRoomChoicePreviews.Count == 0)
             {
                 return;
             }
 
             currentRoomChoices.Clear();
+            currentRoomChoicePreviews.Clear();
             RoomChoicesCleared?.Invoke(this);
+        }
+
+        private void RefreshCurrentRoomChoicePreviews()
+        {
+            currentRoomChoicePreviews.Clear();
+
+            for (int i = 0; i < currentRoomChoices.Count; i++)
+            {
+                currentRoomChoicePreviews.Add(CreateRoomChoicePreview(currentRoomChoices[i]));
+            }
+        }
+
+        private RoomChoicePreview CreateRoomChoicePreview(RoomType roomType)
+        {
+            switch (roomType)
+            {
+                case RoomType.BattleRoom:
+                    return new RoomChoicePreview(
+                        roomType,
+                        "Battle Room",
+                        "Threat: normal enemy group.",
+                        BuildRewardPreview(roomType),
+                        "Route: clear enemies, then choose a standard reward.");
+                case RoomType.EliteRoom:
+                    return new RoomChoicePreview(
+                        roomType,
+                        "Elite Room",
+                        "Threat: stronger enemy group.",
+                        BuildRewardPreview(roomType),
+                        "Route: higher risk for a wider reward draft.");
+                case RoomType.SafeRoom:
+                    return new RoomChoicePreview(
+                        roomType,
+                        "Safe Room",
+                        "Threat: safe, no enemies.",
+                        $"Reward: restore {safeRoomHealAmount:0} HP.",
+                        "Route: recover, then pick the next path.");
+                case RoomType.ShopRoom:
+                    return new RoomChoicePreview(
+                        roomType,
+                        "Supply Room",
+                        "Threat: safe, no enemies.",
+                        BuildRewardPreview(roomType),
+                        "Route: take a smaller reward draft without combat.");
+                case RoomType.BossRoom:
+                    return new RoomChoicePreview(
+                        roomType,
+                        "Boss Room",
+                        "Threat: final boss.",
+                        "Reward: complete the run and return home.",
+                        "Route: final challenge.");
+                default:
+                    return new RoomChoicePreview(
+                        roomType,
+                        roomType.ToString(),
+                        "Threat: unknown.",
+                        "Reward: unknown.",
+                        "Route: scout ahead.");
+            }
+        }
+
+        private string BuildRewardPreview(RoomType roomType)
+        {
+            int candidateCount = BuildRewardCandidateList().Count;
+            int count = GetRewardChoiceTargetCount(roomType, candidateCount);
+            string buildHint = GetCurrentBuildRewardType().HasValue
+                ? " Current AI Build upgrade can appear."
+                : string.Empty;
+
+            return $"Reward: choose 1 of {count} options.{buildHint}";
         }
 
         private List<RoomType> BuildSelectableCandidateList()
