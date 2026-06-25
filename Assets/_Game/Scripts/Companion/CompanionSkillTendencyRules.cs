@@ -28,12 +28,38 @@ namespace AICompanionRoguelike.Companion
 
         public static string GetHudSummaryLine(CompanionSkillTendency tendency)
         {
+            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(tendency);
+            string levelSuffix = upgradeLevel > 0 ? $" | Lv{upgradeLevel}" : string.Empty;
+
             return tendency switch
             {
-                CompanionSkillTendency.Guardian => "AI Build: Guardian | Guard stronger",
-                CompanionSkillTendency.Suppressor => "AI Build: Suppressor | Suppress stronger",
-                CompanionSkillTendency.Link => "AI Build: Link | QTE faster",
+                CompanionSkillTendency.Guardian => $"AI Build: Guardian | Guard stronger{levelSuffix}",
+                CompanionSkillTendency.Suppressor => $"AI Build: Suppressor | Suppress stronger{levelSuffix}",
+                CompanionSkillTendency.Link => $"AI Build: Link | QTE faster{levelSuffix}",
                 _ => "AI Build: 未选择 | choose a run tendency"
+            };
+        }
+
+        public static string GetBuildRewardTitle(CompanionSkillTendency tendency)
+        {
+            int nextLevel = CompanionRunBuildState.GetUpgradeLevel(tendency) + 1;
+            return tendency switch
+            {
+                CompanionSkillTendency.Guardian => $"Guardian Build Lv{nextLevel}",
+                CompanionSkillTendency.Suppressor => $"Suppressor Build Lv{nextLevel}",
+                CompanionSkillTendency.Link => $"Link Build Lv{nextLevel}",
+                _ => "AI Build Upgrade"
+            };
+        }
+
+        public static string GetBuildRewardDescription(CompanionSkillTendency tendency)
+        {
+            return tendency switch
+            {
+                CompanionSkillTendency.Guardian => "Guardian reward: Guard lasts longer, cuts more damage, and cools down faster.",
+                CompanionSkillTendency.Suppressor => "Suppressor reward: Suppress lasts longer, weakens enemies more, and cools down faster.",
+                CompanionSkillTendency.Link => "Link reward: QTE calls become faster during this run.",
+                _ => "Strengthen the current AI Build for this run."
             };
         }
 
@@ -72,7 +98,13 @@ namespace AICompanionRoguelike.Companion
 
         public static float GetQteCooldownMultiplier(CompanionSkillTendency tendency)
         {
-            return tendency == CompanionSkillTendency.Link ? 0.7f : 1f;
+            if (tendency != CompanionSkillTendency.Link)
+            {
+                return 1f;
+            }
+
+            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(CompanionSkillTendency.Link);
+            return 0.7f * Mathf.Pow(0.9f, upgradeLevel);
         }
 
         public static CompanionSkillTendency NormalizeSelectable(CompanionSkillTendency tendency)

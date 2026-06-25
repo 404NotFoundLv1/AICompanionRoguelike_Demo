@@ -3,6 +3,7 @@ using System.Reflection;
 using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Roguelike;
 using AICompanionRoguelike.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -199,6 +200,100 @@ namespace AICompanionRoguelike.Tests
             }
         }
 
+        [TestCase("Guardian", "GuardianBuildUpgrade")]
+        [TestCase("Suppressor", "SuppressorBuildUpgrade")]
+        [TestCase("Link", "LinkBuildUpgrade")]
+        public void RewardChoicesIncludeCurrentBuildUpgrade(string tendencyName, string rewardName)
+        {
+            GameObject runObject = new GameObject("RunManagerBuildRewardChoiceTest");
+
+            try
+            {
+                SetCurrentTendency(tendencyName);
+                runObject.AddComponent<RoomManager>();
+                RunManager runManager = runObject.AddComponent<RunManager>();
+
+                Invoke(runManager, "PrepareRewardChoices");
+
+                Assert.That(
+                    ContainsReward(runManager.CurrentRewardChoices, rewardName),
+                    Is.True,
+                    $"Reward choices should include the selected {tendencyName} build upgrade.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(runObject);
+            }
+        }
+
+        [Test]
+        public void GuardianBuildRewardStrengthensGuardTuningAndShowsLevel()
+        {
+            GameObject runObject = new GameObject("GuardianBuildRewardApplyTest");
+
+            try
+            {
+                SetCurrentTendency("Guardian");
+                runObject.AddComponent<RoomManager>();
+                RunManager runManager = runObject.AddComponent<RunManager>();
+                CompanionRelationshipProfileSnapshot profile = CompanionRelationshipProfile.Evaluate(
+                    50,
+                    50,
+                    Array.Empty<RelationshipMemoryTagScore>());
+
+                object before = EvaluateTacticalSupport(profile, "Guardian");
+                Invoke(runManager, "ApplyReward", ParseRewardType("GuardianBuildUpgrade"));
+                object after = EvaluateTacticalSupport(profile, "Guardian");
+
+                Assert.Less(
+                    ReadFloatProperty(after, "GuardDamageMultiplier"),
+                    ReadFloatProperty(before, "GuardDamageMultiplier"));
+                Assert.AreEqual(1, ReadBuildUpgradeLevel("Guardian"));
+                Assert.That(BuildHudSummary("Guardian"), Does.Contain("Lv1"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(runObject);
+            }
+        }
+
+        [Test]
+        public void LinkBuildRewardFurtherLowersQteCooldownAndShowsLevel()
+        {
+            GameObject runObject = new GameObject("LinkBuildRewardApplyTest");
+            GameObject companionObject = new GameObject("CompanionLinkRewardTest");
+
+            try
+            {
+                SetCurrentTendency("Link");
+                runObject.AddComponent<RoomManager>();
+                RunManager runManager = runObject.AddComponent<RunManager>();
+                CompanionRelationship relationship = companionObject.AddComponent<CompanionRelationship>();
+                relationship.SetRelationshipSnapshot(
+                    50,
+                    50,
+                    Array.Empty<RelationshipMemoryTagScore>(),
+                    updateSessionState: false);
+                Component requester = companionObject.AddComponent(
+                    RequireRuntimeType("AICompanionRoguelike.Companion.CompanionQTERequester"));
+                WritePrivateField(requester, "relationship", relationship);
+                WritePrivateField(requester, "requestCooldown", 4f);
+
+                float before = ReadFloatProperty(requester, "EffectiveRequestCooldown");
+                Invoke(runManager, "ApplyReward", ParseRewardType("LinkBuildUpgrade"));
+                float after = ReadFloatProperty(requester, "EffectiveRequestCooldown");
+
+                Assert.Less(after, before);
+                Assert.AreEqual(1, ReadBuildUpgradeLevel("Link"));
+                Assert.That(BuildHudSummary("Link"), Does.Contain("Lv1"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(companionObject);
+                UnityEngine.Object.DestroyImmediate(runObject);
+            }
+        }
+
         private static object EvaluateTacticalSupport(CompanionRelationshipProfileSnapshot profile, string tendencyName)
         {
             Type rulesType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionTacticalSupportRules");
@@ -246,6 +341,35 @@ namespace AICompanionRoguelike.Tests
             MethodInfo method = rulesType.GetMethod("GetHudSummaryLine", BindingFlags.Public | BindingFlags.Static);
             Assert.NotNull(method, "CompanionSkillTendencyRules should expose GetHudSummaryLine.");
             return (string)method.Invoke(null, new[] { ParseTendency(tendencyName) });
+        }
+
+        private static object ParseRewardType(string rewardName)
+        {
+            Type rewardType = RequireRuntimeType("AICompanionRoguelike.Roguelike.RunRewardType");
+            return Enum.Parse(rewardType, rewardName);
+        }
+
+        private static int ReadBuildUpgradeLevel(string tendencyName)
+        {
+            Type stateType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionRunBuildState");
+            MethodInfo method = stateType.GetMethod("GetUpgradeLevel", BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(method, "CompanionRunBuildState should expose GetUpgradeLevel.");
+            return (int)method.Invoke(null, new[] { ParseTendency(tendencyName) });
+        }
+
+        private static bool ContainsReward(
+            System.Collections.Generic.IEnumerable<RunRewardChoice> choices,
+            string rewardName)
+        {
+            foreach (RunRewardChoice choice in choices)
+            {
+                if (choice.RewardType.ToString() == rewardName)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static Type RequireRuntimeType(string fullName)

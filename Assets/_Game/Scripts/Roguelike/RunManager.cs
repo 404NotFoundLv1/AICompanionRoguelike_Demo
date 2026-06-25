@@ -420,8 +420,14 @@ namespace AICompanionRoguelike.Roguelike
 
             List<RunRewardType> candidates = BuildRewardCandidateList();
             int targetCount = Mathf.Min(rewardChoiceCount, candidates.Count);
+            RunRewardType? buildRewardType = GetCurrentBuildRewardType();
+            if (buildRewardType.HasValue && currentRewardChoices.Count < targetCount)
+            {
+                currentRewardChoices.Add(CreateRewardChoice(buildRewardType.Value));
+                candidates.Remove(buildRewardType.Value);
+            }
 
-            for (int i = 0; i < targetCount; i++)
+            while (currentRewardChoices.Count < targetCount)
             {
                 int selectedIndex = UnityEngine.Random.Range(0, candidates.Count);
                 currentRewardChoices.Add(CreateRewardChoice(candidates[selectedIndex]));
@@ -449,7 +455,7 @@ namespace AICompanionRoguelike.Roguelike
 
         private List<RunRewardType> BuildRewardCandidateList()
         {
-            List<RunRewardType> candidates = new List<RunRewardType>(5);
+            List<RunRewardType> candidates = new List<RunRewardType>(8);
 
             if (selectableRewards != null)
             {
@@ -461,6 +467,12 @@ namespace AICompanionRoguelike.Roguelike
                         candidates.Add(reward);
                     }
                 }
+            }
+
+            RunRewardType? buildRewardType = GetCurrentBuildRewardType();
+            if (buildRewardType.HasValue && !candidates.Contains(buildRewardType.Value))
+            {
+                candidates.Add(buildRewardType.Value);
             }
 
             return candidates;
@@ -480,6 +492,21 @@ namespace AICompanionRoguelike.Roguelike
                     return new RunRewardChoice(rewardType, $"AI 支援冷却 -{(1f - companionCooldownRewardMultiplier) * 100f:0}%", "AI 队友支援攻击更频繁。");
                 case RunRewardType.BondRescueHealth:
                     return new RunRewardChoice(rewardType, $"濒死保护生命 +{bondRescueHealthReward:0}", "濒死保护触发后保留更多生命。");
+                case RunRewardType.GuardianBuildUpgrade:
+                    return new RunRewardChoice(
+                        rewardType,
+                        CompanionSkillTendencyRules.GetBuildRewardTitle(CompanionSkillTendency.Guardian),
+                        CompanionSkillTendencyRules.GetBuildRewardDescription(CompanionSkillTendency.Guardian));
+                case RunRewardType.SuppressorBuildUpgrade:
+                    return new RunRewardChoice(
+                        rewardType,
+                        CompanionSkillTendencyRules.GetBuildRewardTitle(CompanionSkillTendency.Suppressor),
+                        CompanionSkillTendencyRules.GetBuildRewardDescription(CompanionSkillTendency.Suppressor));
+                case RunRewardType.LinkBuildUpgrade:
+                    return new RunRewardChoice(
+                        rewardType,
+                        CompanionSkillTendencyRules.GetBuildRewardTitle(CompanionSkillTendency.Link),
+                        CompanionSkillTendencyRules.GetBuildRewardDescription(CompanionSkillTendency.Link));
                 default:
                     return new RunRewardChoice(rewardType, rewardType.ToString(), "未知奖励。");
             }
@@ -506,7 +533,36 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardType.BondRescueHealth:
                     ApplyBondRescueHealthReward(player);
                     break;
+                case RunRewardType.GuardianBuildUpgrade:
+                    ApplyBuildUpgradeReward(CompanionSkillTendency.Guardian);
+                    break;
+                case RunRewardType.SuppressorBuildUpgrade:
+                    ApplyBuildUpgradeReward(CompanionSkillTendency.Suppressor);
+                    break;
+                case RunRewardType.LinkBuildUpgrade:
+                    ApplyBuildUpgradeReward(CompanionSkillTendency.Link);
+                    break;
             }
+        }
+
+        private static RunRewardType? GetCurrentBuildRewardType()
+        {
+            switch (CompanionRunBuildState.CurrentTendency)
+            {
+                case CompanionSkillTendency.Guardian:
+                    return RunRewardType.GuardianBuildUpgrade;
+                case CompanionSkillTendency.Suppressor:
+                    return RunRewardType.SuppressorBuildUpgrade;
+                case CompanionSkillTendency.Link:
+                    return RunRewardType.LinkBuildUpgrade;
+                default:
+                    return null;
+            }
+        }
+
+        private void ApplyBuildUpgradeReward(CompanionSkillTendency tendency)
+        {
+            CompanionRunBuildState.AddUpgrade(tendency);
         }
 
         private void ApplyMaxHealthReward(GameObject player)

@@ -130,6 +130,27 @@ namespace AICompanionRoguelike.Companion
                     break;
             }
 
+            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(tendency);
+            if (upgradeLevel > 0)
+            {
+                switch (tendency)
+                {
+                    case CompanionSkillTendency.Guardian:
+                        guardDuration += 0.35f * upgradeLevel;
+                        guardDamageMultiplier -= 0.05f * upgradeLevel;
+                        guardCooldown *= Mathf.Pow(0.9f, upgradeLevel);
+                        guardTriggerHealthRatio += 0.03f * upgradeLevel;
+                        break;
+                    case CompanionSkillTendency.Suppressor:
+                        suppressionDuration += 0.35f * upgradeLevel;
+                        suppressionDamageMultiplier -= 0.05f * upgradeLevel;
+                        suppressionMoveMultiplier -= 0.05f * upgradeLevel;
+                        suppressionCooldown *= Mathf.Pow(0.9f, upgradeLevel);
+                        suppressionTriggerHealthRatio += 0.04f * upgradeLevel;
+                        break;
+                }
+            }
+
             return new CompanionTacticalSupportTuning(
                 Mathf.Max(0.1f, guardDuration),
                 Mathf.Clamp(guardDamageMultiplier, 0.25f, 1f),

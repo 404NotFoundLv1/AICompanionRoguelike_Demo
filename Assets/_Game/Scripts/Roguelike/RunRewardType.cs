@@ -6,6 +6,9 @@ namespace AICompanionRoguelike.Roguelike
         PlayerDamage,
         MoveSpeed,
         CompanionCooldown,
-        BondRescueHealth
+        BondRescueHealth,
+        GuardianBuildUpgrade,
+        SuppressorBuildUpgrade,
+        LinkBuildUpgrade
     }
 }
