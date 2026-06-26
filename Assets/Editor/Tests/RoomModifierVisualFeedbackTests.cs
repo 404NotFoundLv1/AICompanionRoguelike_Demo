@@ -61,25 +61,20 @@ namespace AICompanionRoguelike.Tests
         [Test]
         public void EntryModifierFeedbackIncludesVisualLanguageAndBondSpeech()
         {
-            GameObject runObject = new GameObject("RunManagerModifierVisualFeedbackTest");
+            GameObject recoveryRunObject = new GameObject("RunManagerRecoveryVisualFeedbackTest");
+            GameObject bondRunObject = new GameObject("RunManagerBondVisualFeedbackTest");
             GameObject playerObject = new GameObject("Player");
             GameObject companionObject = new GameObject("CompanionModifierSpeechTest");
 
             try
             {
-                runObject.AddComponent<RoomManager>();
-                RunManager runManager = runObject.AddComponent<RunManager>();
-                WritePrivateField(runManager, "roomChoiceCount", 4);
-                WritePrivateField(
-                    runManager,
-                    "selectableRoomTypes",
-                    new[]
-                    {
-                        RoomType.BattleRoom,
-                        RoomType.SafeRoom,
-                        RoomType.ShopRoom,
-                        RoomType.EliteRoom
-                    });
+                recoveryRunObject.AddComponent<RoomManager>();
+                RunManager recoveryRunManager = recoveryRunObject.AddComponent<RunManager>();
+                ConfigureRoomChoices(recoveryRunManager);
+
+                bondRunObject.AddComponent<RoomManager>();
+                RunManager bondRunManager = bondRunObject.AddComponent<RunManager>();
+                ConfigureRoomChoices(bondRunManager);
 
                 HealthComponent health = playerObject.AddComponent<HealthComponent>();
                 health.SetMaxHealth(100f, true);
@@ -93,22 +88,22 @@ namespace AICompanionRoguelike.Tests
                     updateSessionState: false);
                 CompanionSpeechBubbleUI speechBubble = companionObject.AddComponent<CompanionSpeechBubbleUI>();
 
-                Invoke(runManager, "PrepareNextRoomChoices");
-                WritePrivateField(runManager, "waitingForNextRoom", true);
-                Invoke(runManager, "AdvanceToSelectedRoom", FindChoiceIndex(runManager, RoomType.SafeRoom));
+                Invoke(recoveryRunManager, "PrepareNextRoomChoices");
+                WritePrivateField(recoveryRunManager, "waitingForNextRoom", true);
+                Invoke(recoveryRunManager, "AdvanceToSelectedRoom", FindChoiceIndex(recoveryRunManager, RoomType.SafeRoom));
 
-                Assert.That(ReadStringProperty(runManager, "LastRoomModifierFeedbackTitle"), Does.Contain("Recovery"));
-                Assert.That(ReadStringProperty(runManager, "LastRoomModifierFeedbackLine"), Does.Contain("healing field"));
-                Color recoveryColor = (Color)ReadProperty(runManager, "LastRoomModifierFeedbackColor");
+                Assert.That(ReadStringProperty(recoveryRunManager, "LastRoomModifierFeedbackTitle"), Does.Contain("Recovery"));
+                Assert.That(ReadStringProperty(recoveryRunManager, "LastRoomModifierFeedbackLine"), Does.Contain("healing field"));
+                Color recoveryColor = (Color)ReadProperty(recoveryRunManager, "LastRoomModifierFeedbackColor");
                 Assert.Greater(recoveryColor.g, recoveryColor.r);
 
-                Invoke(runManager, "PrepareNextRoomChoices");
-                WritePrivateField(runManager, "waitingForNextRoom", true);
-                Invoke(runManager, "AdvanceToSelectedRoom", FindChoiceIndex(runManager, RoomType.ShopRoom));
+                Invoke(bondRunManager, "PrepareNextRoomChoices");
+                WritePrivateField(bondRunManager, "waitingForNextRoom", true);
+                Invoke(bondRunManager, "AdvanceToSelectedRoom", FindChoiceIndex(bondRunManager, RoomType.ShopRoom));
 
-                Assert.That(ReadStringProperty(runManager, "LastRoomModifierFeedbackTitle"), Does.Contain("Bond Signal"));
-                Assert.That(ReadStringProperty(runManager, "LastRoomModifierFeedbackLine"), Does.Contain("Trust +1"));
-                Assert.That(ReadStringProperty(runManager, "LastRoomModifierFeedbackLine"), Does.Contain("Affection +1"));
+                Assert.That(ReadStringProperty(bondRunManager, "LastRoomModifierFeedbackTitle"), Does.Contain("Bond Signal"));
+                Assert.That(ReadStringProperty(bondRunManager, "LastRoomModifierFeedbackLine"), Does.Contain("Trust +1"));
+                Assert.That(ReadStringProperty(bondRunManager, "LastRoomModifierFeedbackLine"), Does.Contain("Affection +1"));
                 Assert.That(speechBubble.CurrentMessage, Does.Contain("Bond Signal"));
                 Assert.That(relationship.Trust, Is.EqualTo(51));
                 Assert.That(relationship.Affection, Is.EqualTo(51));
@@ -117,7 +112,8 @@ namespace AICompanionRoguelike.Tests
             {
                 UnityEngine.Object.DestroyImmediate(companionObject);
                 UnityEngine.Object.DestroyImmediate(playerObject);
-                UnityEngine.Object.DestroyImmediate(runObject);
+                UnityEngine.Object.DestroyImmediate(bondRunObject);
+                UnityEngine.Object.DestroyImmediate(recoveryRunObject);
             }
         }
 
@@ -144,6 +140,21 @@ namespace AICompanionRoguelike.Tests
             Type type = Type.GetType($"{fullTypeName}, Assembly-CSharp");
             Assert.NotNull(type, $"{fullTypeName} should exist.");
             return type;
+        }
+
+        private static void ConfigureRoomChoices(RunManager runManager)
+        {
+            WritePrivateField(runManager, "roomChoiceCount", 4);
+            WritePrivateField(
+                runManager,
+                "selectableRoomTypes",
+                new[]
+                {
+                    RoomType.BattleRoom,
+                    RoomType.SafeRoom,
+                    RoomType.ShopRoom,
+                    RoomType.EliteRoom
+                });
         }
 
         private static int FindChoiceIndex(RunManager runManager, RoomType roomType)
