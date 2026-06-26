@@ -279,6 +279,27 @@ namespace AICompanionRoguelike.Roguelike
                 RoomModifierRules.GetEnemyDamageMultiplier(CurrentRoomModifier),
                 RoomModifierRules.GetEnemyScaleMultiplier(CurrentRoomModifier),
                 RoomModifierRules.GetEnemyTint(CurrentRoomModifier));
+            ApplyRoomModifierVisualMarker(enemyObject);
+        }
+
+        private void ApplyRoomModifierVisualMarker(GameObject enemyObject)
+        {
+            if (CurrentRoomModifier != RoomModifierType.Reinforced && CurrentRoomModifier != RoomModifierType.Ambush)
+            {
+                return;
+            }
+
+            RoomModifierVisualMarker2D marker = enemyObject.GetComponent<RoomModifierVisualMarker2D>();
+            if (marker == null)
+            {
+                marker = enemyObject.AddComponent<RoomModifierVisualMarker2D>();
+            }
+
+            marker.Configure(
+                CurrentRoomModifier,
+                RoomModifierRules.GetFeedbackTitle(CurrentRoomModifier),
+                RoomModifierRules.GetFeedbackColor(CurrentRoomModifier),
+                RoomModifierRules.GetReadableVisualHint(CurrentRoomModifier));
         }
 
         private static bool ShouldAllowModifier(RoomType roomType)

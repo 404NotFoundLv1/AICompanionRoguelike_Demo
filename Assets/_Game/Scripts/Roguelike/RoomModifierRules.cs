@@ -115,6 +115,85 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        public static Color GetFeedbackColor(RoomModifierType modifierType)
+        {
+            switch (modifierType)
+            {
+                case RoomModifierType.Reinforced:
+                    return new Color(1f, 0.58f, 0.24f, 1f);
+                case RoomModifierType.Ambush:
+                    return new Color(0.84f, 0.42f, 1f, 1f);
+                case RoomModifierType.Recovery:
+                    return new Color(0.36f, 0.92f, 0.54f, 1f);
+                case RoomModifierType.BondSignal:
+                    return new Color(0.45f, 0.82f, 1f, 1f);
+                default:
+                    return Color.white;
+            }
+        }
+
+        public static string GetFeedbackTitle(RoomModifierType modifierType)
+        {
+            switch (modifierType)
+            {
+                case RoomModifierType.Reinforced:
+                    return "Reinforced";
+                case RoomModifierType.Ambush:
+                    return "Ambush";
+                case RoomModifierType.Recovery:
+                    return "Recovery";
+                case RoomModifierType.BondSignal:
+                    return "Bond Signal";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static string GetReadableVisualHint(RoomModifierType modifierType)
+        {
+            switch (modifierType)
+            {
+                case RoomModifierType.Reinforced:
+                    return "orange marker above reinforced enemies";
+                case RoomModifierType.Ambush:
+                    return "violet marker above ambush enemies";
+                case RoomModifierType.Recovery:
+                    return "green healing field in the safe room";
+                case RoomModifierType.BondSignal:
+                    return "blue bond pulse around the AI companion";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static string BuildEntryFeedbackLine(RoomModifierType modifierType, float restoredHealth)
+        {
+            switch (modifierType)
+            {
+                case RoomModifierType.Reinforced:
+                    return "Enemies now show an orange Reinforced marker and trade higher danger for +1 reward option.";
+                case RoomModifierType.Ambush:
+                    return "Ambush enemies show violet markers, with one extra enemy joining from the side lane for +1 reward option.";
+                case RoomModifierType.Recovery:
+                    return $"A green healing field stabilized the room and restored {restoredHealth:0} HP.";
+                case RoomModifierType.BondSignal:
+                    return $"The AI caught a Bond Signal pulse. Trust +{GetTrustDelta(modifierType)}, Affection +{GetAffectionDelta(modifierType)}, reward draft +1 option.";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static string BuildCompanionFeedbackLine(RoomModifierType modifierType)
+        {
+            switch (modifierType)
+            {
+                case RoomModifierType.BondSignal:
+                    return $"Bond Signal received. Trust +{GetTrustDelta(modifierType)} / Affection +{GetAffectionDelta(modifierType)}.";
+                default:
+                    return string.Empty;
+            }
+        }
+
         public static float GetSafeHealMultiplier(RoomModifierType modifierType)
         {
             return modifierType == RoomModifierType.Recovery ? 1.5f : 1f;

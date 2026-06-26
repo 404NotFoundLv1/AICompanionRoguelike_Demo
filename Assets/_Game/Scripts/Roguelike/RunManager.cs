@@ -4,6 +4,7 @@ using AICompanionRoguelike.Character;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -51,7 +52,7 @@ namespace AICompanionRoguelike.Roguelike
 
         [Header("Room Feedback")]
         [SerializeField] private bool showRoomFeedbackPanel = true;
-        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 470f, 58f);
+        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 520f, 98f);
 
         [Header("Rewards")]
         [SerializeField] private bool useRoomRewards = true;
@@ -81,6 +82,9 @@ namespace AICompanionRoguelike.Roguelike
         private bool waitingForReward;
         private bool runCompleted;
         private string lastRoomFeedbackMessage;
+        private string lastRoomModifierFeedbackTitle;
+        private string lastRoomModifierFeedbackLine;
+        private Color lastRoomModifierFeedbackColor = Color.white;
         private RoomModifierType currentRoomModifier = RoomModifierType.None;
         private RoomModifierType pendingSelectedRoomModifier = RoomModifierType.None;
         private RoomManager subscribedRoomManager;
@@ -119,6 +123,9 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
         public string LastRoomFeedbackMessage => lastRoomFeedbackMessage;
+        public string LastRoomModifierFeedbackTitle => lastRoomModifierFeedbackTitle;
+        public string LastRoomModifierFeedbackLine => lastRoomModifierFeedbackLine;
+        public Color LastRoomModifierFeedbackColor => lastRoomModifierFeedbackColor;
 
         private void Reset()
         {
@@ -216,6 +223,7 @@ namespace AICompanionRoguelike.Roguelike
             waitingForReward = false;
             runCompleted = false;
             SetRoomFeedback(string.Empty);
+            ClearRoomModifierFeedback();
             currentRoomModifier = RoomModifierType.None;
             pendingSelectedRoomModifier = RoomModifierType.None;
             currentRouteHistory.Clear();
@@ -305,6 +313,7 @@ namespace AICompanionRoguelike.Roguelike
 
             float restoredHealth = ApplyRoomEntryEffect(nextRoomType, currentRoomModifier);
             ApplyRoomModifierEntryEffect(currentRoomModifier);
+            SetRoomModifierFeedback(currentRoomModifier, restoredHealth);
             SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth, currentRoomModifier));
             RecordRouteEntry(nextRoomType, roomNumber, currentRoomModifier);
             roomManager.EnterRoom(nextRoomType, roomNumber, currentRoomModifier);
@@ -734,16 +743,16 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             CompanionRelationship relationship = FindAnyObjectByType<CompanionRelationship>();
-            if (relationship == null)
+            if (relationship != null)
             {
-                return;
+                relationship.ApplyMemoryEvent(
+                    "Bond Signal Room",
+                    RoomModifierRules.GetTrustDelta(roomModifier),
+                    RoomModifierRules.GetAffectionDelta(roomModifier),
+                    RoomModifierRules.GetMemoryTag(roomModifier));
             }
 
-            relationship.ApplyMemoryEvent(
-                "Bond Signal Room",
-                RoomModifierRules.GetTrustDelta(roomModifier),
-                RoomModifierRules.GetAffectionDelta(roomModifier),
-                RoomModifierRules.GetMemoryTag(roomModifier));
+            ShowCompanionModifierFeedback(roomModifier);
         }
 
         private string BuildRoomFeedbackMessage(RoomType roomType, float restoredHealth, RoomModifierType roomModifier)
@@ -774,8 +783,11 @@ namespace AICompanionRoguelike.Roguelike
 
         private static string BuildModifierFeedbackLine(RoomModifierType roomModifier)
         {
-            RoomModifierPreview preview = RoomModifierRules.CreatePreview(RoomType.BattleRoom, roomModifier);
-            return preview.HasModifier ? $"{preview.Title}: {preview.RewardPreview}" : string.Empty;
+            string title = RoomModifierRules.GetFeedbackTitle(roomModifier);
+            string visualHint = RoomModifierRules.GetReadableVisualHint(roomModifier);
+            return string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(visualHint)
+                ? string.Empty
+                : $"{title}: {visualHint}.";
         }
 
         private static string AppendModifierFeedback(string baseMessage, string modifierLine)
@@ -788,6 +800,41 @@ namespace AICompanionRoguelike.Roguelike
         private void SetRoomFeedback(string message)
         {
             lastRoomFeedbackMessage = message ?? string.Empty;
+        }
+
+        private void SetRoomModifierFeedback(RoomModifierType roomModifier, float restoredHealth)
+        {
+            if (roomModifier == RoomModifierType.None)
+            {
+                ClearRoomModifierFeedback();
+                return;
+            }
+
+            lastRoomModifierFeedbackTitle = RoomModifierRules.GetFeedbackTitle(roomModifier);
+            lastRoomModifierFeedbackLine = RoomModifierRules.BuildEntryFeedbackLine(roomModifier, restoredHealth);
+            lastRoomModifierFeedbackColor = RoomModifierRules.GetFeedbackColor(roomModifier);
+        }
+
+        private void ClearRoomModifierFeedback()
+        {
+            lastRoomModifierFeedbackTitle = string.Empty;
+            lastRoomModifierFeedbackLine = string.Empty;
+            lastRoomModifierFeedbackColor = Color.white;
+        }
+
+        private static void ShowCompanionModifierFeedback(RoomModifierType roomModifier)
+        {
+            string message = RoomModifierRules.BuildCompanionFeedbackLine(roomModifier);
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            CompanionSpeechBubbleUI speechBubble = UnityEngine.Object.FindAnyObjectByType<CompanionSpeechBubbleUI>();
+            if (speechBubble != null)
+            {
+                speechBubble.ShowMessage(message, 4f, 3);
+            }
         }
 
         private void ApplyMaxHealthReward(GameObject player)
@@ -1325,6 +1372,17 @@ namespace AICompanionRoguelike.Roguelike
 
             GUILayout.BeginArea(rect, GUI.skin.box);
             GUILayout.Label(lastRoomFeedbackMessage);
+            if (!string.IsNullOrWhiteSpace(lastRoomModifierFeedbackTitle)
+                || !string.IsNullOrWhiteSpace(lastRoomModifierFeedbackLine))
+            {
+                GUILayout.Space(4f);
+                Color previousColor = GUI.color;
+                GUI.color = lastRoomModifierFeedbackColor;
+                GUILayout.Label(lastRoomModifierFeedbackTitle);
+                GUI.color = previousColor;
+                GUILayout.Label(lastRoomModifierFeedbackLine);
+            }
+
             GUILayout.EndArea();
         }
 
