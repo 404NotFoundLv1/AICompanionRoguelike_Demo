@@ -77,6 +77,7 @@ namespace AICompanionRoguelike.Tests
                 applySuppression.Invoke(attack, new object[] { 1f, 0.4f });
 
                 attack.TryAttack(playerObject.transform);
+                attack.Tick(0.35f);
 
                 Assert.AreEqual(96f, playerHealth.CurrentHealth, 0.001f);
             }

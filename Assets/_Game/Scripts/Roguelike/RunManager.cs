@@ -373,18 +373,15 @@ namespace AICompanionRoguelike.Roguelike
             waitingForNextRoom = false;
             RunSessionState.RecordRoomCleared(roomType, roomNumber);
 
+            string roomClearedFeedback = BuildRoomClearedFeedbackMessage(roomType, roomNumber);
+            if (ShouldShowCombatClearFeedback(roomType))
+            {
+                SetRoomFeedback(roomClearedFeedback);
+            }
+
             if (logRunMessages)
             {
-                string message = ShouldCompleteRun(roomNumber)
-                    ? $"Room #{roomNumber} cleared. Run complete."
-                    : IsNextRoomBossRoom()
-                    ? $"Room #{roomNumber} cleared. Find the final portal to challenge the boss."
-                    : ShouldOfferReward(roomType)
-                    ? $"Room #{roomNumber} cleared. Choose a reward before selecting the next route."
-                    : (useRoomChoicePortal
-                        ? $"Room #{roomNumber} cleared. Find the next-room portal to choose a route."
-                        : $"Room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.");
-                Debug.Log(message, this);
+                Debug.Log(roomClearedFeedback, this);
             }
 
             if (ShouldCompleteRun(roomNumber))
@@ -762,11 +759,11 @@ namespace AICompanionRoguelike.Roguelike
             {
                 case RoomType.BattleRoom:
                     return AppendModifierFeedback(
-                        $"Battle Room: standard combat. Clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        $"Combat Started - Battle Room: read each enemy warning, then clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
                         modifierLine);
                 case RoomType.EliteRoom:
                     return AppendModifierFeedback(
-                        $"Elite Room: enemies are larger, stronger, and worth {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        $"Combat Started - Elite Room: larger enemies hit harder, so watch enemy warning zones for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
                         modifierLine);
                 case RoomType.SafeRoom:
                     return AppendModifierFeedback($"Safe Room: restored {restoredHealth:0} HP. No enemies here.", modifierLine);
@@ -795,6 +792,35 @@ namespace AICompanionRoguelike.Roguelike
             return string.IsNullOrWhiteSpace(modifierLine)
                 ? baseMessage
                 : $"{baseMessage} Modifier {modifierLine}";
+        }
+
+        private string BuildRoomClearedFeedbackMessage(RoomType roomType, int roomNumber)
+        {
+            if (ShouldCompleteRun(roomNumber))
+            {
+                return $"Room Clear - room #{roomNumber} cleared. Run complete.";
+            }
+
+            if (IsNextRoomBossRoom())
+            {
+                return $"Room Clear - room #{roomNumber} cleared. Find the final portal to challenge the boss.";
+            }
+
+            if (ShouldOfferReward(roomType))
+            {
+                return $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.";
+            }
+
+            return useRoomChoicePortal
+                ? $"Room Clear - room #{roomNumber} cleared. Find the next-room portal to choose a route."
+                : $"Room Clear - room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.";
+        }
+
+        private static bool ShouldShowCombatClearFeedback(RoomType roomType)
+        {
+            return roomType == RoomType.BattleRoom
+                || roomType == RoomType.EliteRoom
+                || roomType == RoomType.BossRoom;
         }
 
         private void SetRoomFeedback(string message)

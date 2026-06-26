@@ -144,7 +144,7 @@ namespace AICompanionRoguelike.Roguelike
                 if (enemy != null)
                 {
                     enemy.gameObject.SetActive(false);
-                    Destroy(enemy.gameObject);
+                    DestroyRoomObject(enemy.gameObject);
                 }
             }
 
@@ -252,6 +252,8 @@ namespace AICompanionRoguelike.Roguelike
                 return;
             }
 
+            EnsureCombatFeelFeedback(enemyObject);
+
             if (CurrentRoomType == RoomType.EliteRoom)
             {
                 ApplyEnemyTuning(enemyObject, eliteHealthMultiplier, eliteDamageMultiplier, eliteScaleMultiplier, eliteTint);
@@ -264,6 +266,19 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             ApplyRoomModifierEnemyTuning(enemyObject);
+        }
+
+        private static void EnsureCombatFeelFeedback(GameObject enemyObject)
+        {
+            if (enemyObject.GetComponent<HealthComponent>() == null)
+            {
+                return;
+            }
+
+            if (enemyObject.GetComponent<DamageFlashFeedback2D>() == null)
+            {
+                enemyObject.AddComponent<DamageFlashFeedback2D>();
+            }
         }
 
         private void ApplyRoomModifierEnemyTuning(GameObject enemyObject)
@@ -446,7 +461,7 @@ namespace AICompanionRoguelike.Roguelike
                 if (enemy != null)
                 {
                     enemy.gameObject.SetActive(false);
-                    Destroy(enemy.gameObject);
+                    DestroyRoomObject(enemy.gameObject);
                 }
             }
 
@@ -461,7 +476,24 @@ namespace AICompanionRoguelike.Roguelike
             {
                 GameObject child = enemyContainer.GetChild(i).gameObject;
                 child.SetActive(false);
-                Destroy(child);
+                DestroyRoomObject(child);
+            }
+        }
+
+        private static void DestroyRoomObject(GameObject target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(target);
+            }
+            else
+            {
+                DestroyImmediate(target);
             }
         }
     }
