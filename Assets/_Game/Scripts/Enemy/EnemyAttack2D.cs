@@ -31,6 +31,10 @@ namespace AICompanionRoguelike.Enemy
         public event Action<EnemyAttack2D, bool> AttackResolved;
 
         public float Damage => damage;
+        public float Cooldown => cooldown;
+        public float AttackRange => attackRange;
+        public float WarningDuration => warningDuration;
+        public Vector2 WarningSize => warningSize;
         public float CurrentDamage => damage * TacticalDamageMultiplier;
         public bool IsTacticallySuppressed => tacticalSuppressionTimer > 0f;
         public float TacticalDamageMultiplier => IsTacticallySuppressed ? tacticalDamageMultiplier : 1f;
@@ -129,6 +133,22 @@ namespace AICompanionRoguelike.Enemy
         public void MultiplyDamage(float multiplier)
         {
             damage = Mathf.Max(0f, damage * Mathf.Max(0f, multiplier));
+        }
+
+        public void ConfigureAttackProfile(
+            float newAttackRange,
+            float newCooldown,
+            float newWarningDuration,
+            Vector2 newWarningSize,
+            Color newWarningColor)
+        {
+            attackRange = Mathf.Max(0.05f, newAttackRange);
+            cooldown = Mathf.Max(0.05f, newCooldown);
+            warningDuration = Mathf.Max(0f, newWarningDuration);
+            warningSize = new Vector2(Mathf.Max(0.1f, newWarningSize.x), Mathf.Max(0.1f, newWarningSize.y));
+            warningColor = newWarningColor;
+            cooldownTimer = Mathf.Min(cooldownTimer, cooldown);
+            UpdateWarningVisual();
         }
 
         public void ApplyTacticalSuppression(float duration, float damageMultiplier)

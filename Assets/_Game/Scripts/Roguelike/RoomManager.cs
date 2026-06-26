@@ -208,19 +208,20 @@ namespace AICompanionRoguelike.Roguelike
 
             Vector3 spawnPosition = GetSpawnPosition(index);
             GameObject enemyObject = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity, enemyContainer);
-            enemyObject.name = GetEnemyName(index);
+            EnemyArchetypeType archetypeType = GetEnemyArchetype(index, enemyCount);
+            enemyObject.name = GetEnemyName(index, archetypeType);
             enemyObject.SetActive(true);
 
             EnemyController2D enemy = enemyObject.GetComponent<EnemyController2D>();
             if (enemy == null)
             {
                 Debug.LogWarning($"{enemyObject.name} does not have EnemyController2D and cannot be tracked by RoomManager.", enemyObject);
-                Destroy(enemyObject);
+                DestroyRoomObject(enemyObject);
                 return;
             }
 
             enemy.SetTarget(playerTarget);
-            ConfigureSpawnedEnemy(enemyObject);
+            ConfigureSpawnedEnemy(enemyObject, archetypeType);
             activeEnemies.Add(enemy);
 
             if (logRoomMessages)
@@ -245,7 +246,7 @@ namespace AICompanionRoguelike.Roguelike
             return transform.position + Vector3.right * (3f + index * 1.5f);
         }
 
-        private void ConfigureSpawnedEnemy(GameObject enemyObject)
+        private void ConfigureSpawnedEnemy(GameObject enemyObject, EnemyArchetypeType archetypeType)
         {
             if (enemyObject == null)
             {
@@ -253,6 +254,11 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             EnsureCombatFeelFeedback(enemyObject);
+
+            if (CurrentRoomType != RoomType.BossRoom)
+            {
+                ApplyEnemyArchetype(enemyObject, archetypeType);
+            }
 
             if (CurrentRoomType == RoomType.EliteRoom)
             {
@@ -266,6 +272,78 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             ApplyRoomModifierEnemyTuning(enemyObject);
+        }
+
+        private EnemyArchetypeType GetEnemyArchetype(int index, int enemyCount)
+        {
+            if (CurrentRoomType == RoomType.EliteRoom)
+            {
+                return index == 0 ? EnemyArchetypeType.Guard : EnemyArchetypeType.Ranged;
+            }
+
+            if (CurrentRoomType == RoomType.BattleRoom)
+            {
+                if (CurrentRoomModifier == RoomModifierType.Ambush && index == enemyCount - 1 && enemyCount > 1)
+                {
+                    return EnemyArchetypeType.Melee;
+                }
+
+                return enemyCount > 1 && index % 3 == 1
+                    ? EnemyArchetypeType.Ranged
+                    : EnemyArchetypeType.Melee;
+            }
+
+            return EnemyArchetypeType.Melee;
+        }
+
+        private static void ApplyEnemyArchetype(GameObject enemyObject, EnemyArchetypeType archetypeType)
+        {
+            EnemyArchetype2D marker = enemyObject.GetComponent<EnemyArchetype2D>();
+            if (marker == null)
+            {
+                marker = enemyObject.AddComponent<EnemyArchetype2D>();
+            }
+
+            marker.Configure(
+                archetypeType,
+                EnemyArchetypeRules.GetDisplayName(archetypeType),
+                EnemyArchetypeRules.GetReadableRoleHint(archetypeType),
+                EnemyArchetypeRules.GetRoleColor(archetypeType));
+
+            enemyObject.transform.localScale *= Mathf.Max(0.1f, EnemyArchetypeRules.GetScaleMultiplier(archetypeType));
+
+            HealthComponent health = enemyObject.GetComponent<HealthComponent>();
+            if (health != null)
+            {
+                health.SetMaxHealth(health.MaxHealth * Mathf.Max(0.1f, EnemyArchetypeRules.GetHealthMultiplier(archetypeType)), true);
+            }
+
+            EnemyAttack2D attack = enemyObject.GetComponent<EnemyAttack2D>();
+            if (attack != null)
+            {
+                attack.MultiplyDamage(EnemyArchetypeRules.GetDamageMultiplier(archetypeType));
+                attack.ConfigureAttackProfile(
+                    EnemyArchetypeRules.GetAttackRange(archetypeType),
+                    EnemyArchetypeRules.GetCooldown(archetypeType),
+                    EnemyArchetypeRules.GetWarningDuration(archetypeType),
+                    EnemyArchetypeRules.GetWarningSize(archetypeType),
+                    EnemyArchetypeRules.GetRoleColor(archetypeType));
+            }
+
+            EnemyController2D controller = enemyObject.GetComponent<EnemyController2D>();
+            if (controller != null)
+            {
+                controller.ConfigureMovement(
+                    EnemyArchetypeRules.GetDetectionRange(archetypeType),
+                    EnemyArchetypeRules.GetMoveSpeed(archetypeType),
+                    EnemyArchetypeRules.GetStopDistance(archetypeType));
+            }
+
+            SpriteRenderer spriteRenderer = enemyObject.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = EnemyArchetypeRules.GetRoleColor(archetypeType);
+            }
         }
 
         private static void EnsureCombatFeelFeedback(GameObject enemyObject)
@@ -331,19 +409,22 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
-        private string GetEnemyName(int index)
+        private string GetEnemyName(int index, EnemyArchetypeType archetypeType)
         {
             string modifierPrefix = string.IsNullOrWhiteSpace(RoomModifierRules.GetShortLabel(CurrentRoomModifier))
                 ? string.Empty
                 : $"{RoomModifierRules.GetShortLabel(CurrentRoomModifier)}_";
+            string archetypePrefix = CurrentRoomType == RoomType.BossRoom
+                ? string.Empty
+                : $"{EnemyArchetypeRules.GetDisplayName(archetypeType)}_";
             switch (CurrentRoomType)
             {
                 case RoomType.BossRoom:
                     return $"Boss_Room{CurrentRoomNumber}_{index + 1}";
                 case RoomType.EliteRoom:
-                    return $"{modifierPrefix}Elite_{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+                    return $"{modifierPrefix}{archetypePrefix}Elite_{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
                 default:
-                    return $"{modifierPrefix}{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+                    return $"{modifierPrefix}{archetypePrefix}{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
             }
         }
 

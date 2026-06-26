@@ -40,6 +40,9 @@ namespace AICompanionRoguelike.Enemy
         public EnemyState CurrentState => currentState;
         public int FacingDirection => facingDirection;
         public Transform Target => target;
+        public float DetectionRange => detectionRange;
+        public float MoveSpeed => moveSpeed;
+        public float StopDistance => stopDistance;
         public float CurrentMoveSpeed => moveSpeed * TacticalMoveSpeedMultiplier;
         public bool IsTacticallySuppressed => tacticalSuppressionTimer > 0f;
         public float TacticalMoveSpeedMultiplier => IsTacticallySuppressed ? tacticalMoveSpeedMultiplier : 1f;
@@ -114,6 +117,13 @@ namespace AICompanionRoguelike.Enemy
         public void SetTarget(Transform newTarget)
         {
             target = newTarget;
+        }
+
+        public void ConfigureMovement(float newDetectionRange, float newMoveSpeed, float newStopDistance)
+        {
+            detectionRange = Mathf.Max(0f, newDetectionRange);
+            moveSpeed = Mathf.Max(0f, newMoveSpeed);
+            stopDistance = Mathf.Max(0f, newStopDistance);
         }
 
         private void ChaseTarget(float distanceToTarget)
