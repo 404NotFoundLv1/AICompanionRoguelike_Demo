@@ -301,11 +301,12 @@ namespace AICompanionRoguelike.Roguelike
         private void DrawChoicePanel()
         {
             const float width = 460f;
-            float height = Mathf.Min(420f, 128f + offeredChoices.Count * 82f);
+            float height = Mathf.Min(460f, 160f + offeredChoices.Count * 82f);
             Rect rect = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
 
             GUILayout.BeginArea(rect, GUI.skin.box);
             GUILayout.Label(choiceTitle);
+            DrawRouteProgress();
             GUILayout.Space(8f);
 
             for (int i = 0; i < offeredChoices.Count; i++)
@@ -332,6 +333,17 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             GUILayout.EndArea();
+        }
+
+        private void DrawRouteProgress()
+        {
+            if (runManager == null)
+            {
+                return;
+            }
+
+            GUILayout.Label(runManager.CurrentRouteProgressLabel);
+            GUILayout.Label(runManager.CurrentRoutePathLabel);
         }
 
         private static RoomChoicePreview GetPreviewForChoice(

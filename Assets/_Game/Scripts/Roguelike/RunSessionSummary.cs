@@ -27,7 +27,8 @@ namespace AICompanionRoguelike.Roguelike
                 0,
                 0,
                 0,
-                0)
+                0,
+                Array.Empty<RoomType>())
         {
         }
 
@@ -46,12 +47,48 @@ namespace AICompanionRoguelike.Roguelike
             int bossSupportActivations,
             int bossWarningHits,
             int bossWarningDodges)
+            : this(
+                runId,
+                endReason,
+                roomsCleared,
+                lastRoomNumber,
+                lastRoomType,
+                rewardTitles,
+                finalTrust,
+                finalAffection,
+                companionFeedbackLine,
+                companionTrustDelta,
+                companionAffectionDelta,
+                bossSupportActivations,
+                bossWarningHits,
+                bossWarningDodges,
+                Array.Empty<RoomType>())
+        {
+        }
+
+        public RunSessionSummary(
+            int runId,
+            RunEndReason endReason,
+            int roomsCleared,
+            int lastRoomNumber,
+            RoomType lastRoomType,
+            string[] rewardTitles,
+            int finalTrust,
+            int finalAffection,
+            string companionFeedbackLine,
+            int companionTrustDelta,
+            int companionAffectionDelta,
+            int bossSupportActivations,
+            int bossWarningHits,
+            int bossWarningDodges,
+            RoomType[] routePath)
         {
             RunId = runId;
             EndReason = endReason;
             RoomsCleared = roomsCleared;
             LastRoomNumber = lastRoomNumber;
             LastRoomType = lastRoomType;
+            RoutePath = routePath ?? Array.Empty<RoomType>();
             RewardTitles = rewardTitles ?? Array.Empty<string>();
             FinalTrust = finalTrust;
             FinalAffection = finalAffection;
@@ -71,6 +108,7 @@ namespace AICompanionRoguelike.Roguelike
         public int RoomsCleared { get; }
         public int LastRoomNumber { get; }
         public RoomType LastRoomType { get; }
+        public RoomType[] RoutePath { get; }
         public string[] RewardTitles { get; }
         public int FinalTrust { get; }
         public int FinalAffection { get; }
@@ -83,5 +121,33 @@ namespace AICompanionRoguelike.Roguelike
         public bool HasSummary => RunId > 0 && EndReason != RunEndReason.None;
         public bool HasRelationship => FinalTrust >= 0 && FinalAffection >= 0;
         public bool HasCompanionFeedback => !string.IsNullOrEmpty(CompanionFeedbackLine);
+        public bool HasRoutePath => RoutePath.Length > 0;
+
+        public string RoutePathLabel
+        {
+            get
+            {
+                if (RoutePath.Length == 0)
+                {
+                    return "Route: none";
+                }
+
+                return $"Route: {string.Join(" -> ", Array.ConvertAll(RoutePath, GetRoomLabel))}";
+            }
+        }
+
+        private static string GetRoomLabel(RoomType roomType)
+        {
+            return roomType switch
+            {
+                RoomType.BattleRoom => "Battle",
+                RoomType.EliteRoom => "Elite",
+                RoomType.SafeRoom => "Safe",
+                RoomType.ShopRoom => "Supply",
+                RoomType.BossRoom => "Boss",
+                RoomType.BranchEventRoom => "Branch",
+                _ => roomType.ToString()
+            };
+        }
     }
 }

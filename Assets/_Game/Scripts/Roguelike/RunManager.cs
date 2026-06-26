@@ -46,7 +46,7 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private string homeScenePath = "Assets/_Game/Scenes/HomeScene.unity";
         [SerializeField] private Key completionReturnHomeKey = Key.E;
         [SerializeField] private bool showCompletionPanel = true;
-        [SerializeField] private Rect completionPanelRect = new Rect(0f, 92f, 560f, 270f);
+        [SerializeField] private Rect completionPanelRect = new Rect(0f, 92f, 580f, 300f);
 
         [Header("Room Feedback")]
         [SerializeField] private bool showRoomFeedbackPanel = true;
@@ -81,6 +81,7 @@ namespace AICompanionRoguelike.Roguelike
         private bool runCompleted;
         private string lastRoomFeedbackMessage;
         private RoomManager subscribedRoomManager;
+        private readonly List<RoomType> currentRouteHistory = new List<RoomType>(8);
         private readonly List<RoomType> currentRoomChoices = new List<RoomType>(4);
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
@@ -100,6 +101,9 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsWaitingForReward => waitingForReward;
         public bool IsRunCompleted => runCompleted;
         public int RoomsToCompleteRun => roomsToCompleteRun;
+        public IReadOnlyList<RoomType> CurrentRouteHistory => currentRouteHistory;
+        public string CurrentRouteProgressLabel => BuildCurrentRouteProgressLabel();
+        public string CurrentRoutePathLabel => BuildCurrentRoutePathLabel();
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
@@ -201,6 +205,7 @@ namespace AICompanionRoguelike.Roguelike
             waitingForReward = false;
             runCompleted = false;
             SetRoomFeedback(string.Empty);
+            currentRouteHistory.Clear();
             ClearRewardChoices();
             ClearPreparedRoomChoices();
 
@@ -258,6 +263,7 @@ namespace AICompanionRoguelike.Roguelike
 
             float restoredHealth = ApplyRoomEntryEffect(nextRoomType);
             SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth));
+            RecordRouteEntry(nextRoomType, roomNumber);
             roomManager.EnterRoom(nextRoomType, roomNumber);
             RoomAdvanced?.Invoke(this, nextRoomType, roomNumber);
 
@@ -736,6 +742,55 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        private void RecordRouteEntry(RoomType roomType, int roomNumber)
+        {
+            currentRouteHistory.Add(roomType);
+            RunSessionState.RecordRoomEntered(roomType, roomNumber);
+        }
+
+        private string BuildCurrentRouteProgressLabel()
+        {
+            int totalRooms = Mathf.Max(1, roomsToCompleteRun);
+            int currentRoom = Mathf.Clamp(CurrentRoomNumber, 0, totalRooms);
+
+            if (currentRoom == 0)
+            {
+                return $"Room 0/{totalRooms} | Choose a route";
+            }
+
+            if (CurrentRoomType == RoomType.BossRoom)
+            {
+                return $"Room {currentRoom}/{totalRooms} | Boss room";
+            }
+
+            if (!useRunCompletion || !useBossFinalRoom)
+            {
+                return $"Room {currentRoom}/{totalRooms} | Endless route";
+            }
+
+            int roomsBeforeBoss = Mathf.Max(0, Mathf.Max(1, totalRooms - 1) - currentRoom);
+            string bossLabel = roomsBeforeBoss == 0
+                ? "Boss next"
+                : $"Boss in {roomsBeforeBoss} room(s)";
+            return $"Room {currentRoom}/{totalRooms} | {bossLabel}";
+        }
+
+        private string BuildCurrentRoutePathLabel()
+        {
+            if (currentRouteHistory.Count == 0)
+            {
+                return "Route: none";
+            }
+
+            List<string> labels = new List<string>(currentRouteHistory.Count);
+            for (int i = 0; i < currentRouteHistory.Count; i++)
+            {
+                labels.Add(GetRoomShortLabel(currentRouteHistory[i]));
+            }
+
+            return $"Route: {string.Join(" -> ", labels)}";
+        }
+
         private void PrepareNextRoomChoices()
         {
             currentRoomChoices.Clear();
@@ -746,14 +801,12 @@ namespace AICompanionRoguelike.Roguelike
             }
             else
             {
-                List<RoomType> candidates = BuildSelectableCandidateList();
+                List<RoomType> candidates = BuildPacedCandidateList();
                 int targetCount = Mathf.Min(roomChoiceCount, candidates.Count);
 
                 for (int i = 0; i < targetCount; i++)
                 {
-                    int selectedIndex = UnityEngine.Random.Range(0, candidates.Count);
-                    currentRoomChoices.Add(candidates[selectedIndex]);
-                    candidates.RemoveAt(selectedIndex);
+                    currentRoomChoices.Add(candidates[i]);
                 }
 
                 if (currentRoomChoices.Count == 0)
@@ -878,6 +931,89 @@ namespace AICompanionRoguelike.Roguelike
             return candidates;
         }
 
+        private List<RoomType> BuildPacedCandidateList()
+        {
+            List<RoomType> selectableCandidates = BuildSelectableCandidateList();
+            bool suppressSupportRooms = ShouldSuppressSupportRoomCandidates();
+            int nextRoomNumber = roomIndex + 2;
+            List<RoomType> orderedCandidates = new List<RoomType>(selectableCandidates.Count);
+
+            if (IsLateRouteChoice(nextRoomNumber))
+            {
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.EliteRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.BattleRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.ShopRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.SafeRoom, suppressSupportRooms);
+            }
+            else if (IsEarlyRouteChoice(nextRoomNumber))
+            {
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.BattleRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.SafeRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.ShopRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.EliteRoom, suppressSupportRooms);
+            }
+            else
+            {
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.BattleRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.EliteRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.SafeRoom, suppressSupportRooms);
+                AddPacedCandidate(orderedCandidates, selectableCandidates, RoomType.ShopRoom, suppressSupportRooms);
+            }
+
+            for (int i = 0; i < selectableCandidates.Count; i++)
+            {
+                AddPacedCandidate(orderedCandidates, selectableCandidates, selectableCandidates[i], suppressSupportRooms);
+            }
+
+            if (orderedCandidates.Count == 0)
+            {
+                orderedCandidates.Add(RoomType.BattleRoom);
+            }
+
+            return orderedCandidates;
+        }
+
+        private bool IsEarlyRouteChoice(int nextRoomNumber)
+        {
+            return nextRoomNumber <= 2;
+        }
+
+        private bool IsLateRouteChoice(int nextRoomNumber)
+        {
+            return useRunCompletion
+                && useBossFinalRoom
+                && nextRoomNumber >= Mathf.Max(2, roomsToCompleteRun - 1);
+        }
+
+        private bool ShouldSuppressSupportRoomCandidates()
+        {
+            if (currentRouteHistory.Count == 0)
+            {
+                return false;
+            }
+
+            return IsSupportRoom(currentRouteHistory[currentRouteHistory.Count - 1]);
+        }
+
+        private static void AddPacedCandidate(
+            List<RoomType> orderedCandidates,
+            List<RoomType> selectableCandidates,
+            RoomType roomType,
+            bool suppressSupportRooms)
+        {
+            if (!selectableCandidates.Contains(roomType) || orderedCandidates.Contains(roomType))
+            {
+                return;
+            }
+
+            if (suppressSupportRooms && IsSupportRoom(roomType))
+            {
+                return;
+            }
+
+            orderedCandidates.Add(roomType);
+        }
+
         private void OnGUI()
         {
             if (showRoomFeedbackPanel && !runCompleted && !string.IsNullOrWhiteSpace(lastRoomFeedbackMessage))
@@ -910,6 +1046,7 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.Space(6f);
             GUILayout.Label($"清理房间：{summary.RoomsCleared}/{roomsToCompleteRun}");
             GUILayout.Label($"最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
+            GUILayout.Label(BuildCompletionRouteLine(summary));
             GUILayout.Label(BuildCompletionRewardLine(summary));
             GUILayout.Label(BuildCompletionRelationshipLine(summary));
             GUILayout.Label(BuildCompletionBossLine(summary));
@@ -934,6 +1071,11 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             return $"选择奖励：{string.Join(" / ", summary.RewardTitles)}";
+        }
+
+        private static string BuildCompletionRouteLine(RunSessionSummary summary)
+        {
+            return summary.HasRoutePath ? summary.RoutePathLabel : "Route: none";
         }
 
         private static string BuildCompletionRelationshipLine(RunSessionSummary summary)
@@ -964,6 +1106,25 @@ namespace AICompanionRoguelike.Roguelike
         private static bool IsSelectableRoomType(RoomType roomType)
         {
             return roomType != RoomType.BranchEventRoom;
+        }
+
+        private static bool IsSupportRoom(RoomType roomType)
+        {
+            return roomType == RoomType.SafeRoom || roomType == RoomType.ShopRoom;
+        }
+
+        private static string GetRoomShortLabel(RoomType roomType)
+        {
+            return roomType switch
+            {
+                RoomType.BattleRoom => "Battle",
+                RoomType.EliteRoom => "Elite",
+                RoomType.SafeRoom => "Safe",
+                RoomType.ShopRoom => "Supply",
+                RoomType.BranchEventRoom => "Branch",
+                RoomType.BossRoom => "Boss",
+                _ => roomType.ToString()
+            };
         }
     }
 }
