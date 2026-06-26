@@ -24,6 +24,7 @@ namespace AICompanionRoguelike.Roguelike
 
         private readonly List<RoomType> offeredChoices = new List<RoomType>(4);
         private readonly List<RoomChoicePreview> offeredPreviews = new List<RoomChoicePreview>(4);
+        private readonly List<RouteMapNode> offeredRouteMapNodes = new List<RouteMapNode>(8);
         private SpriteRenderer portalRenderer;
         private Collider2D portalCollider;
         private bool isVisible;
@@ -35,6 +36,7 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsChoiceOpen => isChoiceOpen;
         public IReadOnlyList<RoomType> OfferedChoices => offeredChoices;
         public IReadOnlyList<RoomChoicePreview> OfferedPreviews => offeredPreviews;
+        public IReadOnlyList<RouteMapNode> OfferedRouteMapNodes => offeredRouteMapNodes;
 
         private void Reset()
         {
@@ -188,7 +190,9 @@ namespace AICompanionRoguelike.Roguelike
         {
             offeredChoices.Clear();
             offeredPreviews.Clear();
+            offeredRouteMapNodes.Clear();
             IReadOnlyList<RoomChoicePreview> previews = manager != null ? manager.CurrentRoomChoicePreviews : null;
+            IReadOnlyList<RouteMapNode> routeMapNodes = manager != null ? manager.CurrentRouteMapNodes : null;
 
             for (int i = 0; i < choices.Count; i++)
             {
@@ -201,6 +205,7 @@ namespace AICompanionRoguelike.Roguelike
                 offeredPreviews.Add(GetPreviewForChoice(previews, choices[i], i));
             }
 
+            CopyRouteMapNodes(routeMapNodes);
             transform.position = portalPosition;
             SetVisible(offeredChoices.Count > 0);
         }
@@ -209,7 +214,26 @@ namespace AICompanionRoguelike.Roguelike
         {
             offeredChoices.Clear();
             offeredPreviews.Clear();
+            offeredRouteMapNodes.Clear();
             SetVisible(false);
+        }
+
+        private void CopyRouteMapNodes(IReadOnlyList<RouteMapNode> routeMapNodes)
+        {
+            if (routeMapNodes == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < routeMapNodes.Count; i++)
+            {
+                if (routeMapNodes[i].RoomType == RoomType.BranchEventRoom)
+                {
+                    continue;
+                }
+
+                offeredRouteMapNodes.Add(routeMapNodes[i]);
+            }
         }
 
         private void SetVisible(bool visible)
@@ -300,12 +324,14 @@ namespace AICompanionRoguelike.Roguelike
 
         private void DrawChoicePanel()
         {
-            const float width = 460f;
-            float height = Mathf.Min(460f, 160f + offeredChoices.Count * 82f);
+            const float width = 540f;
+            float height = Mathf.Min(Screen.height - 24f, Mathf.Min(560f, 228f + offeredChoices.Count * 82f));
             Rect rect = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
 
             GUILayout.BeginArea(rect, GUI.skin.box);
             GUILayout.Label(choiceTitle);
+            DrawRouteMap();
+            GUILayout.Space(6f);
             DrawRouteProgress();
             GUILayout.Space(8f);
 
@@ -335,6 +361,32 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.EndArea();
         }
 
+        private void DrawRouteMap()
+        {
+            if (offeredRouteMapNodes.Count == 0)
+            {
+                return;
+            }
+
+            GUILayout.Label("Route map");
+            GUILayout.BeginHorizontal();
+            for (int i = 0; i < offeredRouteMapNodes.Count; i++)
+            {
+                if (i > 0)
+                {
+                    GUILayout.Label(">", GUILayout.Width(14f));
+                }
+
+                RouteMapNode node = offeredRouteMapNodes[i];
+                Color previousBackground = GUI.backgroundColor;
+                GUI.backgroundColor = GetRouteNodeColor(node);
+                GUILayout.Box(BuildRouteNodeText(node), GUILayout.MinWidth(76f), GUILayout.Height(44f));
+                GUI.backgroundColor = previousBackground;
+            }
+
+            GUILayout.EndHorizontal();
+        }
+
         private void DrawRouteProgress()
         {
             if (runManager == null)
@@ -344,6 +396,52 @@ namespace AICompanionRoguelike.Roguelike
 
             GUILayout.Label(runManager.CurrentRouteProgressLabel);
             GUILayout.Label(runManager.CurrentRoutePathLabel);
+            GUILayout.Label(runManager.CurrentRouteMapLabel);
+        }
+
+        private static string BuildRouteNodeText(RouteMapNode node)
+        {
+            string prefix = node.IsNextChoice
+                ? $"[{node.ChoiceIndex + 1}]"
+                : $"{node.StepNumber}.";
+            string state = node.IsCurrent
+                ? "Here"
+                : node.IsNextChoice
+                    ? "Next"
+                    : node.IsBossEndpoint
+                        ? "Goal"
+                        : node.IsCompleted
+                            ? "Done"
+                            : string.Empty;
+
+            return string.IsNullOrWhiteSpace(state)
+                ? $"{prefix} {node.Label}"
+                : $"{prefix} {node.Label}\n{state}";
+        }
+
+        private static Color GetRouteNodeColor(RouteMapNode node)
+        {
+            if (node.IsCurrent)
+            {
+                return new Color(0.65f, 0.86f, 1f, 1f);
+            }
+
+            if (node.IsBossEndpoint)
+            {
+                return new Color(1f, 0.42f, 0.38f, 1f);
+            }
+
+            switch (node.RoomType)
+            {
+                case RoomType.EliteRoom:
+                    return new Color(1f, 0.82f, 0.34f, 1f);
+                case RoomType.SafeRoom:
+                    return new Color(0.45f, 0.9f, 0.55f, 1f);
+                case RoomType.ShopRoom:
+                    return new Color(0.52f, 0.9f, 0.95f, 1f);
+                default:
+                    return new Color(0.86f, 0.86f, 0.86f, 1f);
+            }
         }
 
         private static RoomChoicePreview GetPreviewForChoice(

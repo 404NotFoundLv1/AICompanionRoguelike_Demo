@@ -84,6 +84,7 @@ namespace AICompanionRoguelike.Roguelike
         private readonly List<RoomType> currentRouteHistory = new List<RoomType>(8);
         private readonly List<RoomType> currentRoomChoices = new List<RoomType>(4);
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
+        private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
 
         public static event Action<RunManager> AnyRunStarted;
@@ -104,8 +105,10 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RoomType> CurrentRouteHistory => currentRouteHistory;
         public string CurrentRouteProgressLabel => BuildCurrentRouteProgressLabel();
         public string CurrentRoutePathLabel => BuildCurrentRoutePathLabel();
+        public string CurrentRouteMapLabel => BuildCurrentRouteMapLabel();
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
+        public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
         public string LastRoomFeedbackMessage => lastRoomFeedbackMessage;
 
@@ -791,6 +794,37 @@ namespace AICompanionRoguelike.Roguelike
             return $"Route: {string.Join(" -> ", labels)}";
         }
 
+        private string BuildCurrentRouteMapLabel()
+        {
+            string historyLabel = currentRouteHistory.Count > 0
+                ? string.Join(" -> ", BuildRoomLabelList(currentRouteHistory))
+                : "Start";
+            string nextLabel = currentRoomChoices.Count > 0
+                ? string.Join(" / ", BuildRoomLabelList(currentRoomChoices))
+                : "none";
+            string goalLabel = useRunCompletion && useBossFinalRoom
+                ? $"{GetRoomShortLabel(RoomType.BossRoom)}@{Mathf.Max(1, roomsToCompleteRun)}"
+                : "Endless";
+
+            return $"Map: {historyLabel} | Next: {nextLabel} | Goal: {goalLabel}";
+        }
+
+        private static List<string> BuildRoomLabelList(IReadOnlyList<RoomType> roomTypes)
+        {
+            List<string> labels = new List<string>(roomTypes.Count);
+            for (int i = 0; i < roomTypes.Count; i++)
+            {
+                if (roomTypes[i] == RoomType.BranchEventRoom)
+                {
+                    continue;
+                }
+
+                labels.Add(GetRoomShortLabel(roomTypes[i]));
+            }
+
+            return labels;
+        }
+
         private void PrepareNextRoomChoices()
         {
             currentRoomChoices.Clear();
@@ -816,6 +850,7 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             RefreshCurrentRoomChoicePreviews();
+            RefreshCurrentRouteMapNodes();
 
             if (logRunMessages)
             {
@@ -827,13 +862,16 @@ namespace AICompanionRoguelike.Roguelike
 
         private void ClearPreparedRoomChoices()
         {
-            if (currentRoomChoices.Count == 0 && currentRoomChoicePreviews.Count == 0)
+            if (currentRoomChoices.Count == 0
+                && currentRoomChoicePreviews.Count == 0
+                && currentRouteMapNodes.Count == 0)
             {
                 return;
             }
 
             currentRoomChoices.Clear();
             currentRoomChoicePreviews.Clear();
+            currentRouteMapNodes.Clear();
             RoomChoicesCleared?.Invoke(this);
         }
 
@@ -845,6 +883,80 @@ namespace AICompanionRoguelike.Roguelike
             {
                 currentRoomChoicePreviews.Add(CreateRoomChoicePreview(currentRoomChoices[i]));
             }
+        }
+
+        private void RefreshCurrentRouteMapNodes()
+        {
+            currentRouteMapNodes.Clear();
+
+            for (int i = 0; i < currentRouteHistory.Count; i++)
+            {
+                RoomType roomType = currentRouteHistory[i];
+                bool isCurrent = i == currentRouteHistory.Count - 1;
+                currentRouteMapNodes.Add(new RouteMapNode(
+                    roomType,
+                    GetRoomShortLabel(roomType),
+                    i + 1,
+                    !isCurrent,
+                    isCurrent,
+                    false,
+                    roomType == RoomType.BossRoom,
+                    -1));
+            }
+
+            int nextStepNumber = Mathf.Max(1, CurrentRoomNumber + 1);
+            for (int i = 0; i < currentRoomChoices.Count; i++)
+            {
+                RoomType choice = currentRoomChoices[i];
+                if (choice == RoomType.BranchEventRoom)
+                {
+                    continue;
+                }
+
+                currentRouteMapNodes.Add(new RouteMapNode(
+                    choice,
+                    GetRoomShortLabel(choice),
+                    nextStepNumber,
+                    false,
+                    false,
+                    true,
+                    choice == RoomType.BossRoom,
+                    i));
+            }
+
+            if (ShouldAddBossEndpointNode())
+            {
+                currentRouteMapNodes.Add(new RouteMapNode(
+                    RoomType.BossRoom,
+                    GetRoomShortLabel(RoomType.BossRoom),
+                    Mathf.Max(1, roomsToCompleteRun),
+                    false,
+                    false,
+                    false,
+                    true,
+                    -1));
+            }
+        }
+
+        private bool ShouldAddBossEndpointNode()
+        {
+            return useRunCompletion
+                && useBossFinalRoom
+                && !ContainsBossEndpointNode();
+        }
+
+        private bool ContainsBossEndpointNode()
+        {
+            for (int i = 0; i < currentRouteMapNodes.Count; i++)
+            {
+                if (currentRouteMapNodes[i].RoomType == RoomType.BossRoom
+                    && currentRouteMapNodes[i].IsBossEndpoint)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private RoomChoicePreview CreateRoomChoicePreview(RoomType roomType)
