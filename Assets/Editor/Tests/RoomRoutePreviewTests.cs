@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Roguelike;
 using NUnit.Framework;
 using UnityEngine;
@@ -111,6 +112,83 @@ namespace AICompanionRoguelike.Tests
             }
         }
 
+        [Test]
+        public void EliteRoomSpawnsVisiblyStrongerEnemiesThanBattleRoom()
+        {
+            GameObject battleManagerObject = new GameObject("BattleRoomManagerTest");
+            GameObject eliteManagerObject = new GameObject("EliteRoomManagerTest");
+            GameObject enemyPrefab = CreateEnemyPrefab();
+
+            try
+            {
+                RoomManager battleRoom = battleManagerObject.AddComponent<RoomManager>();
+                RoomManager eliteRoom = eliteManagerObject.AddComponent<RoomManager>();
+                WritePrivateField(battleRoom, "enemyPrefab", enemyPrefab);
+                WritePrivateField(eliteRoom, "enemyPrefab", enemyPrefab);
+                WritePrivateField(battleRoom, "logRoomMessages", false);
+                WritePrivateField(eliteRoom, "logRoomMessages", false);
+
+                battleRoom.EnterRoom(RoomType.BattleRoom, 1);
+                eliteRoom.EnterRoom(RoomType.EliteRoom, 2);
+
+                GameObject battleEnemy = battleRoom.ActiveEnemies[0].gameObject;
+                GameObject eliteEnemy = eliteRoom.ActiveEnemies[0].gameObject;
+
+                Assert.Greater(
+                    eliteEnemy.GetComponent<HealthComponent>().MaxHealth,
+                    battleEnemy.GetComponent<HealthComponent>().MaxHealth);
+                Assert.Greater(
+                    eliteEnemy.GetComponent<EnemyAttack2D>().Damage,
+                    battleEnemy.GetComponent<EnemyAttack2D>().Damage);
+                Assert.Greater(eliteEnemy.transform.localScale.x, battleEnemy.transform.localScale.x);
+                Assert.AreNotEqual(
+                    battleEnemy.GetComponent<SpriteRenderer>().color,
+                    eliteEnemy.GetComponent<SpriteRenderer>().color);
+                Assert.That(eliteEnemy.name, Does.Contain("Elite"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(battleManagerObject);
+                UnityEngine.Object.DestroyImmediate(eliteManagerObject);
+                UnityEngine.Object.DestroyImmediate(enemyPrefab);
+            }
+        }
+
+        [Test]
+        public void SafeAndSupplyRoomsExposeReadableEntryFeedback()
+        {
+            GameObject runObject = new GameObject("RunManagerRoomFeedbackTest");
+            GameObject playerObject = new GameObject("Player");
+
+            try
+            {
+                runObject.AddComponent<RoomManager>();
+                RunManager runManager = runObject.AddComponent<RunManager>();
+                HealthComponent health = playerObject.AddComponent<HealthComponent>();
+                health.SetMaxHealth(100f, true);
+                health.TakeDamage(new DamageInfo(40f, DamageSourceType.Environment, null));
+
+                Invoke(runManager, "AdvanceToRoom", RoomType.SafeRoom);
+                string safeFeedback = ReadProperty(runManager, "LastRoomFeedbackMessage") as string;
+
+                Assert.That(safeFeedback, Does.Contain("Safe Room"));
+                Assert.That(safeFeedback, Does.Contain("restored"));
+
+                Assert.True(runManager.IsWaitingForNextRoom, "Safe room should immediately return to route selection.");
+                runManager.AdvanceToSelectedRoom(RoomType.ShopRoom);
+                string shopFeedback = ReadProperty(runManager, "LastRoomFeedbackMessage") as string;
+
+                Assert.That(shopFeedback, Does.Contain("Supply Room"));
+                Assert.That(shopFeedback, Does.Contain("reward"));
+                Assert.True(runManager.IsWaitingForReward, "Supply room should immediately open a small reward draft.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerObject);
+                UnityEngine.Object.DestroyImmediate(runObject);
+            }
+        }
+
         private static IReadOnlyList<object> ReadPreviewList(RunManager runManager)
         {
             object value = ReadProperty(runManager, "CurrentRoomChoicePreviews");
@@ -143,6 +221,18 @@ namespace AICompanionRoguelike.Tests
         {
             string value = ReadProperty(target, propertyName) as string;
             Assert.False(string.IsNullOrWhiteSpace(value), $"{propertyName} should be readable.");
+        }
+
+        private static GameObject CreateEnemyPrefab()
+        {
+            GameObject enemy = new GameObject("DummyEnemyPrefab");
+            enemy.SetActive(false);
+            enemy.AddComponent<Rigidbody2D>();
+            enemy.AddComponent<HealthComponent>();
+            enemy.AddComponent<EnemyAttack2D>();
+            enemy.AddComponent<EnemyController2D>();
+            enemy.AddComponent<SpriteRenderer>();
+            return enemy;
         }
 
         private static object ReadProperty(object target, string propertyName)

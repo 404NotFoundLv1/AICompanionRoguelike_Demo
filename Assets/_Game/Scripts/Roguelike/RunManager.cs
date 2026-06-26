@@ -48,6 +48,10 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private bool showCompletionPanel = true;
         [SerializeField] private Rect completionPanelRect = new Rect(0f, 92f, 560f, 270f);
 
+        [Header("Room Feedback")]
+        [SerializeField] private bool showRoomFeedbackPanel = true;
+        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 470f, 58f);
+
         [Header("Rewards")]
         [SerializeField] private bool useRoomRewards = true;
         [SerializeField, Min(1)] private int rewardChoiceCount = 3;
@@ -75,6 +79,8 @@ namespace AICompanionRoguelike.Roguelike
         private bool waitingForNextRoom;
         private bool waitingForReward;
         private bool runCompleted;
+        private string lastRoomFeedbackMessage;
+        private RoomManager subscribedRoomManager;
         private readonly List<RoomType> currentRoomChoices = new List<RoomType>(4);
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
@@ -97,6 +103,7 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
+        public string LastRoomFeedbackMessage => lastRoomFeedbackMessage;
 
         private void Reset()
         {
@@ -106,20 +113,55 @@ namespace AICompanionRoguelike.Roguelike
 
         private void Awake()
         {
-            roomManager = roomManager != null ? roomManager : GetComponent<RoomManager>();
+            ResolveRoomManager();
             branchEventRoomController = branchEventRoomController != null ? branchEventRoomController : GetComponent<BranchEventRoomController>();
+        }
+
+        private void ResolveRoomManager()
+        {
+            roomManager = roomManager != null ? roomManager : GetComponent<RoomManager>();
+        }
+
+        private void SubscribeToRoomManager()
+        {
+            if (roomManager == subscribedRoomManager)
+            {
+                return;
+            }
+
+            UnsubscribeFromRoomManager();
+
+            if (roomManager == null)
+            {
+                return;
+            }
+
+            subscribedRoomManager = roomManager;
+            subscribedRoomManager.RoomCleared += HandleRoomCleared;
+        }
+
+        private void UnsubscribeFromRoomManager()
+        {
+            if (subscribedRoomManager == null)
+            {
+                return;
+            }
+
+            subscribedRoomManager.RoomCleared -= HandleRoomCleared;
+            subscribedRoomManager = null;
         }
 
         private void OnEnable()
         {
-            if (roomManager != null)
-            {
-                roomManager.RoomCleared += HandleRoomCleared;
-            }
+            ResolveRoomManager();
+            SubscribeToRoomManager();
         }
 
         private void Start()
         {
+            ResolveRoomManager();
+            SubscribeToRoomManager();
+
             if (startRunOnStart)
             {
                 StartRun();
@@ -148,10 +190,7 @@ namespace AICompanionRoguelike.Roguelike
 
         private void OnDisable()
         {
-            if (roomManager != null)
-            {
-                roomManager.RoomCleared -= HandleRoomCleared;
-            }
+            UnsubscribeFromRoomManager();
         }
 
         public void StartRun()
@@ -161,6 +200,7 @@ namespace AICompanionRoguelike.Roguelike
             waitingForNextRoom = false;
             waitingForReward = false;
             runCompleted = false;
+            SetRoomFeedback(string.Empty);
             ClearRewardChoices();
             ClearPreparedRoomChoices();
 
@@ -199,6 +239,9 @@ namespace AICompanionRoguelike.Roguelike
 
         private void AdvanceToRoom(RoomType nextRoomType)
         {
+            ResolveRoomManager();
+            SubscribeToRoomManager();
+
             if (roomManager == null)
             {
                 Debug.LogWarning("RunManager cannot advance because RoomManager is missing.", this);
@@ -213,7 +256,8 @@ namespace AICompanionRoguelike.Roguelike
 
             int roomNumber = roomIndex + 1;
 
-            ApplyRoomEntryEffect(nextRoomType);
+            float restoredHealth = ApplyRoomEntryEffect(nextRoomType);
+            SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth));
             roomManager.EnterRoom(nextRoomType, roomNumber);
             RoomAdvanced?.Invoke(this, nextRoomType, roomNumber);
 
@@ -597,27 +641,54 @@ namespace AICompanionRoguelike.Roguelike
             CompanionRunBuildState.AddUpgrade(tendency);
         }
 
-        private void ApplyRoomEntryEffect(RoomType roomType)
+        private float ApplyRoomEntryEffect(RoomType roomType)
         {
             if (roomType != RoomType.SafeRoom)
             {
-                return;
+                return 0f;
             }
 
             GameObject player = GameObject.Find("Player");
             HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
             if (health == null)
             {
-                return;
+                return 0f;
             }
 
             float before = health.CurrentHealth;
             health.Heal(safeRoomHealAmount);
+            float restoredHealth = health.CurrentHealth - before;
 
-            if (logRunMessages && health.CurrentHealth > before)
+            if (logRunMessages && restoredHealth > 0f)
             {
-                Debug.Log($"Safe room restored {health.CurrentHealth - before:0} HP.", this);
+                Debug.Log($"Safe room restored {restoredHealth:0} HP.", this);
             }
+
+            return restoredHealth;
+        }
+
+        private string BuildRoomFeedbackMessage(RoomType roomType, float restoredHealth)
+        {
+            switch (roomType)
+            {
+                case RoomType.BattleRoom:
+                    return $"Battle Room: standard combat. Clear enemies for {GetRewardChoiceTargetCount(roomType, BuildRewardCandidateList().Count)} reward options.";
+                case RoomType.EliteRoom:
+                    return $"Elite Room: enemies are larger, stronger, and worth {GetRewardChoiceTargetCount(roomType, BuildRewardCandidateList().Count)} reward options.";
+                case RoomType.SafeRoom:
+                    return $"Safe Room: restored {restoredHealth:0} HP. No enemies here.";
+                case RoomType.ShopRoom:
+                    return $"Supply Room: no enemies. Choose from {GetRewardChoiceTargetCount(roomType, BuildRewardCandidateList().Count)} reward options.";
+                case RoomType.BossRoom:
+                    return "Boss Room: final challenge. Defeat the boss to complete the run.";
+                default:
+                    return $"{roomType}: scout ahead.";
+            }
+        }
+
+        private void SetRoomFeedback(string message)
+        {
+            lastRoomFeedbackMessage = message ?? string.Empty;
         }
 
         private void ApplyMaxHealthReward(GameObject player)
@@ -809,12 +880,24 @@ namespace AICompanionRoguelike.Roguelike
 
         private void OnGUI()
         {
-            if (!showCompletionPanel || !runCompleted)
+            if (showRoomFeedbackPanel && !runCompleted && !string.IsNullOrWhiteSpace(lastRoomFeedbackMessage))
             {
-                return;
+                DrawRoomFeedbackPanel();
             }
 
-            DrawCompletionPanel();
+            if (showCompletionPanel && runCompleted)
+            {
+                DrawCompletionPanel();
+            }
+        }
+
+        private void DrawRoomFeedbackPanel()
+        {
+            Rect rect = GetCenteredRect(roomFeedbackPanelRect);
+
+            GUILayout.BeginArea(rect, GUI.skin.box);
+            GUILayout.Label(lastRoomFeedbackMessage);
+            GUILayout.EndArea();
         }
 
         private void DrawCompletionPanel()

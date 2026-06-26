@@ -17,6 +17,10 @@ namespace AICompanionRoguelike.Roguelike
         [Header("Battle Rooms")]
         [SerializeField, Min(0)] private int battleEnemyCount = 1;
         [SerializeField, Min(0)] private int eliteEnemyCount = 2;
+        [SerializeField, Min(1f)] private float eliteHealthMultiplier = 1.5f;
+        [SerializeField, Min(1f)] private float eliteDamageMultiplier = 1.25f;
+        [SerializeField, Min(0.1f)] private float eliteScaleMultiplier = 1.18f;
+        [SerializeField] private Color eliteTint = new Color(1f, 0.72f, 0.22f, 1f);
         [SerializeField] private Vector2[] spawnPositions =
         {
             new Vector2(3.2f, -1.15f),
@@ -191,9 +195,7 @@ namespace AICompanionRoguelike.Roguelike
 
             Vector3 spawnPosition = GetSpawnPosition(index);
             GameObject enemyObject = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity, enemyContainer);
-            enemyObject.name = CurrentRoomType == RoomType.BossRoom
-                ? $"Boss_Room{CurrentRoomNumber}_{index + 1}"
-                : $"{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+            enemyObject.name = GetEnemyName(index);
             enemyObject.SetActive(true);
 
             EnemyController2D enemy = enemyObject.GetComponent<EnemyController2D>();
@@ -232,30 +234,41 @@ namespace AICompanionRoguelike.Roguelike
 
         private void ConfigureSpawnedEnemy(GameObject enemyObject)
         {
-            if (CurrentRoomType != RoomType.BossRoom || enemyObject == null)
+            if (enemyObject == null)
             {
                 return;
             }
 
-            enemyObject.transform.localScale *= bossScaleMultiplier;
+            if (CurrentRoomType == RoomType.EliteRoom)
+            {
+                ApplyEnemyTuning(enemyObject, eliteHealthMultiplier, eliteDamageMultiplier, eliteScaleMultiplier, eliteTint);
+                return;
+            }
 
+            if (CurrentRoomType == RoomType.BossRoom)
+            {
+                ConfigureBossEnemy(enemyObject);
+            }
+        }
+
+        private string GetEnemyName(int index)
+        {
+            switch (CurrentRoomType)
+            {
+                case RoomType.BossRoom:
+                    return $"Boss_Room{CurrentRoomNumber}_{index + 1}";
+                case RoomType.EliteRoom:
+                    return $"Elite_{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+                default:
+                    return $"{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+            }
+        }
+
+        private void ConfigureBossEnemy(GameObject enemyObject)
+        {
+            ApplyEnemyTuning(enemyObject, bossHealthMultiplier, bossDamageMultiplier, bossScaleMultiplier, bossTint);
             HealthComponent health = enemyObject.GetComponent<HealthComponent>();
-            if (health != null)
-            {
-                health.SetMaxHealth(health.MaxHealth * bossHealthMultiplier, true);
-            }
-
             EnemyAttack2D attack = enemyObject.GetComponent<EnemyAttack2D>();
-            if (attack != null)
-            {
-                attack.MultiplyDamage(bossDamageMultiplier);
-            }
-
-            SpriteRenderer spriteRenderer = enemyObject.GetComponent<SpriteRenderer>();
-            if (spriteRenderer != null)
-            {
-                spriteRenderer.color = bossTint;
-            }
 
             BossPhaseController phaseController = enemyObject.GetComponent<BossPhaseController>();
             if (phaseController == null)
@@ -272,6 +285,34 @@ namespace AICompanionRoguelike.Roguelike
                 bossPhaseTwoScaleMultiplier);
 
             ConfigureBossTelegraphedAttack(enemyObject);
+        }
+
+        private static void ApplyEnemyTuning(
+            GameObject enemyObject,
+            float healthMultiplier,
+            float damageMultiplier,
+            float scaleMultiplier,
+            Color tint)
+        {
+            enemyObject.transform.localScale *= Mathf.Max(0.1f, scaleMultiplier);
+
+            HealthComponent health = enemyObject.GetComponent<HealthComponent>();
+            if (health != null)
+            {
+                health.SetMaxHealth(health.MaxHealth * Mathf.Max(1f, healthMultiplier), true);
+            }
+
+            EnemyAttack2D attack = enemyObject.GetComponent<EnemyAttack2D>();
+            if (attack != null)
+            {
+                attack.MultiplyDamage(Mathf.Max(1f, damageMultiplier));
+            }
+
+            SpriteRenderer spriteRenderer = enemyObject.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = tint;
+            }
         }
 
         private void ConfigureBossTelegraphedAttack(GameObject enemyObject)
