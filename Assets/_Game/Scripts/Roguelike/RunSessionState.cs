@@ -14,6 +14,7 @@ namespace AICompanionRoguelike.Roguelike
         private static RoomType lastRoomType = RoomType.BattleRoom;
         private static readonly List<string> currentRewardTitles = new List<string>(8);
         private static readonly List<RoomType> currentRoutePath = new List<RoomType>(8);
+        private static readonly List<RoomModifierType> currentRouteModifiers = new List<RoomModifierType>(8);
         private static string companionFeedbackLine = string.Empty;
         private static int companionTrustDelta;
         private static int companionAffectionDelta;
@@ -72,7 +73,13 @@ namespace AICompanionRoguelike.Roguelike
 
         public static void RecordRoomEntered(RoomType roomType, int roomNumber)
         {
+            RecordRoomEntered(roomType, roomNumber, RoomModifierType.None);
+        }
+
+        public static void RecordRoomEntered(RoomType roomType, int roomNumber, RoomModifierType roomModifier)
+        {
             currentRoutePath.Add(roomType);
+            currentRouteModifiers.Add(roomModifier);
             lastRoomType = roomType;
             lastRoomNumber = Mathf.Max(lastRoomNumber, roomNumber);
         }
@@ -127,6 +134,7 @@ namespace AICompanionRoguelike.Roguelike
             lastRoomType = RoomType.BattleRoom;
             currentRewardTitles.Clear();
             currentRoutePath.Clear();
+            currentRouteModifiers.Clear();
             companionFeedbackLine = string.Empty;
             companionTrustDelta = 0;
             companionAffectionDelta = 0;
@@ -152,7 +160,8 @@ namespace AICompanionRoguelike.Roguelike
                 bossSupportActivations,
                 bossWarningHits,
                 bossWarningDodges,
-                currentRoutePath.ToArray());
+                currentRoutePath.ToArray(),
+                currentRouteModifiers.ToArray());
         }
     }
 }

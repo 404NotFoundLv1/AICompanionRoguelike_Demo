@@ -10,7 +10,9 @@ namespace AICompanionRoguelike.Roguelike
             bool isCurrent,
             bool isNextChoice,
             bool isBossEndpoint,
-            int choiceIndex)
+            int choiceIndex,
+            RoomModifierType modifierType = RoomModifierType.None,
+            string modifierLabel = "")
         {
             RoomType = roomType;
             Label = string.IsNullOrWhiteSpace(label) ? roomType.ToString() : label;
@@ -20,6 +22,10 @@ namespace AICompanionRoguelike.Roguelike
             IsNextChoice = isNextChoice;
             IsBossEndpoint = isBossEndpoint;
             ChoiceIndex = isNextChoice ? choiceIndex : -1;
+            ModifierType = modifierType;
+            ModifierLabel = modifierType == RoomModifierType.None
+                ? string.Empty
+                : (string.IsNullOrWhiteSpace(modifierLabel) ? modifierType.ToString() : modifierLabel);
         }
 
         public RoomType RoomType { get; }
@@ -30,5 +36,8 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsNextChoice { get; }
         public bool IsBossEndpoint { get; }
         public int ChoiceIndex { get; }
+        public RoomModifierType ModifierType { get; }
+        public string ModifierLabel { get; }
+        public bool HasModifier => ModifierType != RoomModifierType.None;
     }
 }

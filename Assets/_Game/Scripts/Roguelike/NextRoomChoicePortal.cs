@@ -129,9 +129,8 @@ namespace AICompanionRoguelike.Roguelike
                 return;
             }
 
-            RoomType selectedRoomType = offeredChoices[index];
             SetVisible(false);
-            runManager.AdvanceToSelectedRoom(selectedRoomType);
+            runManager.AdvanceToSelectedRoom(index);
         }
 
         private void ResolveRunManager()
@@ -325,7 +324,7 @@ namespace AICompanionRoguelike.Roguelike
         private void DrawChoicePanel()
         {
             const float width = 540f;
-            float height = Mathf.Min(Screen.height - 24f, Mathf.Min(560f, 228f + offeredChoices.Count * 82f));
+            float height = Mathf.Min(Screen.height - 24f, Mathf.Min(620f, 196f + GetChoicePanelContentHeight()));
             Rect rect = new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
 
             GUILayout.BeginArea(rect, GUI.skin.box);
@@ -349,6 +348,13 @@ namespace AICompanionRoguelike.Roguelike
                 GUILayout.Label(preview.ThreatPreview);
                 GUILayout.Label(preview.RewardPreview);
                 GUILayout.Label(preview.RouteNote);
+                if (preview.HasModifier)
+                {
+                    GUILayout.Label(preview.ModifierRiskPreview);
+                    GUILayout.Label(preview.ModifierRewardPreview);
+                    GUILayout.Label(preview.ModifierRouteNote);
+                }
+
                 GUILayout.Space(6f);
             }
 
@@ -359,6 +365,20 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             GUILayout.EndArea();
+        }
+
+        private float GetChoicePanelContentHeight()
+        {
+            float height = 0f;
+            for (int i = 0; i < offeredChoices.Count; i++)
+            {
+                RoomChoicePreview preview = i < offeredPreviews.Count
+                    ? offeredPreviews[i]
+                    : CreateFallbackPreview(offeredChoices[i]);
+                height += preview.HasModifier ? 126f : 82f;
+            }
+
+            return height;
         }
 
         private void DrawRouteMap()
@@ -404,6 +424,9 @@ namespace AICompanionRoguelike.Roguelike
             string prefix = node.IsNextChoice
                 ? $"[{node.ChoiceIndex + 1}]"
                 : $"{node.StepNumber}.";
+            string label = node.HasModifier
+                ? $"{node.Label}+{node.ModifierLabel}"
+                : node.Label;
             string state = node.IsCurrent
                 ? "Here"
                 : node.IsNextChoice
@@ -415,8 +438,8 @@ namespace AICompanionRoguelike.Roguelike
                             : string.Empty;
 
             return string.IsNullOrWhiteSpace(state)
-                ? $"{prefix} {node.Label}"
-                : $"{prefix} {node.Label}\n{state}";
+                ? $"{prefix} {label}"
+                : $"{prefix} {label}\n{state}";
         }
 
         private static Color GetRouteNodeColor(RouteMapNode node)

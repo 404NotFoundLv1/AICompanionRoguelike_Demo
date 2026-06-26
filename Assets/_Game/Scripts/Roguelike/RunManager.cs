@@ -22,6 +22,7 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private Key nextRoomKey = Key.N;
         [SerializeField] private bool allowDebugNextRoomKey;
         [SerializeField] private bool useRoomChoicePortal = true;
+        [SerializeField] private bool useRoomModifiers = true;
         [SerializeField, Min(1)] private int roomChoiceCount = 3;
         [SerializeField] private RoomType[] selectableRoomTypes =
         {
@@ -80,9 +81,13 @@ namespace AICompanionRoguelike.Roguelike
         private bool waitingForReward;
         private bool runCompleted;
         private string lastRoomFeedbackMessage;
+        private RoomModifierType currentRoomModifier = RoomModifierType.None;
+        private RoomModifierType pendingSelectedRoomModifier = RoomModifierType.None;
         private RoomManager subscribedRoomManager;
         private readonly List<RoomType> currentRouteHistory = new List<RoomType>(8);
+        private readonly List<RoomModifierType> currentRouteModifierHistory = new List<RoomModifierType>(8);
         private readonly List<RoomType> currentRoomChoices = new List<RoomType>(4);
+        private readonly List<RoomModifierType> currentRoomChoiceModifiers = new List<RoomModifierType>(4);
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
@@ -102,11 +107,14 @@ namespace AICompanionRoguelike.Roguelike
         public bool IsWaitingForReward => waitingForReward;
         public bool IsRunCompleted => runCompleted;
         public int RoomsToCompleteRun => roomsToCompleteRun;
+        public RoomModifierType CurrentRoomModifier => currentRoomModifier;
         public IReadOnlyList<RoomType> CurrentRouteHistory => currentRouteHistory;
+        public IReadOnlyList<RoomModifierType> CurrentRouteModifierHistory => currentRouteModifierHistory;
         public string CurrentRouteProgressLabel => BuildCurrentRouteProgressLabel();
         public string CurrentRoutePathLabel => BuildCurrentRoutePathLabel();
         public string CurrentRouteMapLabel => BuildCurrentRouteMapLabel();
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
+        public IReadOnlyList<RoomModifierType> CurrentRoomChoiceModifiers => currentRoomChoiceModifiers;
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
@@ -208,7 +216,10 @@ namespace AICompanionRoguelike.Roguelike
             waitingForReward = false;
             runCompleted = false;
             SetRoomFeedback(string.Empty);
+            currentRoomModifier = RoomModifierType.None;
+            pendingSelectedRoomModifier = RoomModifierType.None;
             currentRouteHistory.Clear();
+            currentRouteModifierHistory.Clear();
             ClearRewardChoices();
             ClearPreparedRoomChoices();
 
@@ -225,7 +236,26 @@ namespace AICompanionRoguelike.Roguelike
         public void AdvanceToNextRoom()
         {
             RoomType nextRoomType = GetRoomTypeForIndex(roomIndex + 1);
+            pendingSelectedRoomModifier = RoomModifierType.None;
             AdvanceToRoom(nextRoomType);
+        }
+
+        public void AdvanceToSelectedRoom(int selectedChoiceIndex)
+        {
+            if (!waitingForNextRoom)
+            {
+                Debug.LogWarning($"RunManager ignored selected room index {selectedChoiceIndex} because no next-room choice is active.", this);
+                return;
+            }
+
+            if (selectedChoiceIndex < 0 || selectedChoiceIndex >= currentRoomChoices.Count)
+            {
+                Debug.LogWarning($"RunManager rejected room choice index {selectedChoiceIndex}.", this);
+                return;
+            }
+
+            pendingSelectedRoomModifier = GetPreparedRoomChoiceModifier(selectedChoiceIndex);
+            AdvanceToRoom(currentRoomChoices[selectedChoiceIndex]);
         }
 
         public void AdvanceToSelectedRoom(RoomType selectedRoomType)
@@ -242,6 +272,10 @@ namespace AICompanionRoguelike.Roguelike
                 return;
             }
 
+            int selectedIndex = currentRoomChoices.IndexOf(selectedRoomType);
+            pendingSelectedRoomModifier = selectedIndex >= 0
+                ? GetPreparedRoomChoiceModifier(selectedIndex)
+                : RoomModifierType.None;
             AdvanceToRoom(selectedRoomType);
         }
 
@@ -256,6 +290,11 @@ namespace AICompanionRoguelike.Roguelike
                 return;
             }
 
+            RoomModifierType nextRoomModifier = ShouldAllowModifier(nextRoomType)
+                ? pendingSelectedRoomModifier
+                : RoomModifierType.None;
+            pendingSelectedRoomModifier = RoomModifierType.None;
+            currentRoomModifier = nextRoomModifier;
             roomIndex++;
             waitingForNextRoom = false;
             waitingForReward = false;
@@ -264,15 +303,16 @@ namespace AICompanionRoguelike.Roguelike
 
             int roomNumber = roomIndex + 1;
 
-            float restoredHealth = ApplyRoomEntryEffect(nextRoomType);
-            SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth));
-            RecordRouteEntry(nextRoomType, roomNumber);
-            roomManager.EnterRoom(nextRoomType, roomNumber);
+            float restoredHealth = ApplyRoomEntryEffect(nextRoomType, currentRoomModifier);
+            ApplyRoomModifierEntryEffect(currentRoomModifier);
+            SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth, currentRoomModifier));
+            RecordRouteEntry(nextRoomType, roomNumber, currentRoomModifier);
+            roomManager.EnterRoom(nextRoomType, roomNumber, currentRoomModifier);
             RoomAdvanced?.Invoke(this, nextRoomType, roomNumber);
 
             if (logRunMessages)
             {
-                Debug.Log($"Advanced to room #{roomNumber}: {nextRoomType}", this);
+                Debug.Log($"Advanced to room #{roomNumber}: {FormatRoomTypeWithModifier(nextRoomType, currentRoomModifier)}", this);
             }
         }
 
@@ -508,6 +548,14 @@ namespace AICompanionRoguelike.Roguelike
 
         private int GetRewardChoiceTargetCount(RoomType sourceRoomType, int candidateCount)
         {
+            return GetRewardChoiceTargetCount(sourceRoomType, currentRoomModifier, candidateCount);
+        }
+
+        private int GetRewardChoiceTargetCount(
+            RoomType sourceRoomType,
+            RoomModifierType roomModifier,
+            int candidateCount)
+        {
             if (candidateCount <= 0)
             {
                 return 0;
@@ -524,6 +572,7 @@ namespace AICompanionRoguelike.Roguelike
                     break;
             }
 
+            targetCount += RoomModifierRules.GetBonusRewardChoices(roomModifier);
             return Mathf.Min(Mathf.Max(1, targetCount), candidateCount);
         }
 
@@ -650,7 +699,7 @@ namespace AICompanionRoguelike.Roguelike
             CompanionRunBuildState.AddUpgrade(tendency);
         }
 
-        private float ApplyRoomEntryEffect(RoomType roomType)
+        private float ApplyRoomEntryEffect(RoomType roomType, RoomModifierType roomModifier)
         {
             if (roomType != RoomType.SafeRoom)
             {
@@ -665,7 +714,8 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             float before = health.CurrentHealth;
-            health.Heal(safeRoomHealAmount);
+            float healAmount = safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(roomModifier);
+            health.Heal(healAmount);
             float restoredHealth = health.CurrentHealth - before;
 
             if (logRunMessages && restoredHealth > 0f)
@@ -676,23 +726,63 @@ namespace AICompanionRoguelike.Roguelike
             return restoredHealth;
         }
 
-        private string BuildRoomFeedbackMessage(RoomType roomType, float restoredHealth)
+        private void ApplyRoomModifierEntryEffect(RoomModifierType roomModifier)
         {
+            if (roomModifier != RoomModifierType.BondSignal)
+            {
+                return;
+            }
+
+            CompanionRelationship relationship = FindAnyObjectByType<CompanionRelationship>();
+            if (relationship == null)
+            {
+                return;
+            }
+
+            relationship.ApplyMemoryEvent(
+                "Bond Signal Room",
+                RoomModifierRules.GetTrustDelta(roomModifier),
+                RoomModifierRules.GetAffectionDelta(roomModifier),
+                RoomModifierRules.GetMemoryTag(roomModifier));
+        }
+
+        private string BuildRoomFeedbackMessage(RoomType roomType, float restoredHealth, RoomModifierType roomModifier)
+        {
+            string modifierLine = BuildModifierFeedbackLine(roomModifier);
             switch (roomType)
             {
                 case RoomType.BattleRoom:
-                    return $"Battle Room: standard combat. Clear enemies for {GetRewardChoiceTargetCount(roomType, BuildRewardCandidateList().Count)} reward options.";
+                    return AppendModifierFeedback(
+                        $"Battle Room: standard combat. Clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        modifierLine);
                 case RoomType.EliteRoom:
-                    return $"Elite Room: enemies are larger, stronger, and worth {GetRewardChoiceTargetCount(roomType, BuildRewardCandidateList().Count)} reward options.";
+                    return AppendModifierFeedback(
+                        $"Elite Room: enemies are larger, stronger, and worth {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        modifierLine);
                 case RoomType.SafeRoom:
-                    return $"Safe Room: restored {restoredHealth:0} HP. No enemies here.";
+                    return AppendModifierFeedback($"Safe Room: restored {restoredHealth:0} HP. No enemies here.", modifierLine);
                 case RoomType.ShopRoom:
-                    return $"Supply Room: no enemies. Choose from {GetRewardChoiceTargetCount(roomType, BuildRewardCandidateList().Count)} reward options.";
+                    return AppendModifierFeedback(
+                        $"Supply Room: no enemies. Choose from {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        modifierLine);
                 case RoomType.BossRoom:
                     return "Boss Room: final challenge. Defeat the boss to complete the run.";
                 default:
-                    return $"{roomType}: scout ahead.";
+                    return AppendModifierFeedback($"{roomType}: scout ahead.", modifierLine);
             }
+        }
+
+        private static string BuildModifierFeedbackLine(RoomModifierType roomModifier)
+        {
+            RoomModifierPreview preview = RoomModifierRules.CreatePreview(RoomType.BattleRoom, roomModifier);
+            return preview.HasModifier ? $"{preview.Title}: {preview.RewardPreview}" : string.Empty;
+        }
+
+        private static string AppendModifierFeedback(string baseMessage, string modifierLine)
+        {
+            return string.IsNullOrWhiteSpace(modifierLine)
+                ? baseMessage
+                : $"{baseMessage} Modifier {modifierLine}";
         }
 
         private void SetRoomFeedback(string message)
@@ -745,10 +835,11 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
-        private void RecordRouteEntry(RoomType roomType, int roomNumber)
+        private void RecordRouteEntry(RoomType roomType, int roomNumber, RoomModifierType roomModifier)
         {
             currentRouteHistory.Add(roomType);
-            RunSessionState.RecordRoomEntered(roomType, roomNumber);
+            currentRouteModifierHistory.Add(roomModifier);
+            RunSessionState.RecordRoomEntered(roomType, roomNumber, roomModifier);
         }
 
         private string BuildCurrentRouteProgressLabel()
@@ -788,7 +879,9 @@ namespace AICompanionRoguelike.Roguelike
             List<string> labels = new List<string>(currentRouteHistory.Count);
             for (int i = 0; i < currentRouteHistory.Count; i++)
             {
-                labels.Add(GetRoomShortLabel(currentRouteHistory[i]));
+                labels.Add(FormatRoomTypeWithModifier(
+                    currentRouteHistory[i],
+                    i < currentRouteModifierHistory.Count ? currentRouteModifierHistory[i] : RoomModifierType.None));
             }
 
             return $"Route: {string.Join(" -> ", labels)}";
@@ -797,10 +890,10 @@ namespace AICompanionRoguelike.Roguelike
         private string BuildCurrentRouteMapLabel()
         {
             string historyLabel = currentRouteHistory.Count > 0
-                ? string.Join(" -> ", BuildRoomLabelList(currentRouteHistory))
+                ? string.Join(" -> ", BuildRoomLabelList(currentRouteHistory, currentRouteModifierHistory))
                 : "Start";
             string nextLabel = currentRoomChoices.Count > 0
-                ? string.Join(" / ", BuildRoomLabelList(currentRoomChoices))
+                ? string.Join(" / ", BuildRoomLabelList(currentRoomChoices, currentRoomChoiceModifiers))
                 : "none";
             string goalLabel = useRunCompletion && useBossFinalRoom
                 ? $"{GetRoomShortLabel(RoomType.BossRoom)}@{Mathf.Max(1, roomsToCompleteRun)}"
@@ -809,7 +902,9 @@ namespace AICompanionRoguelike.Roguelike
             return $"Map: {historyLabel} | Next: {nextLabel} | Goal: {goalLabel}";
         }
 
-        private static List<string> BuildRoomLabelList(IReadOnlyList<RoomType> roomTypes)
+        private static List<string> BuildRoomLabelList(
+            IReadOnlyList<RoomType> roomTypes,
+            IReadOnlyList<RoomModifierType> roomModifiers)
         {
             List<string> labels = new List<string>(roomTypes.Count);
             for (int i = 0; i < roomTypes.Count; i++)
@@ -819,7 +914,10 @@ namespace AICompanionRoguelike.Roguelike
                     continue;
                 }
 
-                labels.Add(GetRoomShortLabel(roomTypes[i]));
+                RoomModifierType modifier = roomModifiers != null && i < roomModifiers.Count
+                    ? roomModifiers[i]
+                    : RoomModifierType.None;
+                labels.Add(FormatRoomTypeWithModifier(roomTypes[i], modifier));
             }
 
             return labels;
@@ -849,6 +947,7 @@ namespace AICompanionRoguelike.Roguelike
                 }
             }
 
+            RefreshCurrentRoomChoiceModifiers();
             RefreshCurrentRoomChoicePreviews();
             RefreshCurrentRouteMapNodes();
 
@@ -863,6 +962,7 @@ namespace AICompanionRoguelike.Roguelike
         private void ClearPreparedRoomChoices()
         {
             if (currentRoomChoices.Count == 0
+                && currentRoomChoiceModifiers.Count == 0
                 && currentRoomChoicePreviews.Count == 0
                 && currentRouteMapNodes.Count == 0)
             {
@@ -870,9 +970,23 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             currentRoomChoices.Clear();
+            currentRoomChoiceModifiers.Clear();
             currentRoomChoicePreviews.Clear();
             currentRouteMapNodes.Clear();
             RoomChoicesCleared?.Invoke(this);
+        }
+
+        private void RefreshCurrentRoomChoiceModifiers()
+        {
+            currentRoomChoiceModifiers.Clear();
+
+            for (int i = 0; i < currentRoomChoices.Count; i++)
+            {
+                currentRoomChoiceModifiers.Add(RoomModifierRules.GetModifierForChoice(
+                    currentRoomChoices[i],
+                    i,
+                    useRoomModifiers));
+            }
         }
 
         private void RefreshCurrentRoomChoicePreviews()
@@ -881,7 +995,9 @@ namespace AICompanionRoguelike.Roguelike
 
             for (int i = 0; i < currentRoomChoices.Count; i++)
             {
-                currentRoomChoicePreviews.Add(CreateRoomChoicePreview(currentRoomChoices[i]));
+                currentRoomChoicePreviews.Add(CreateRoomChoicePreview(
+                    currentRoomChoices[i],
+                    GetPreparedRoomChoiceModifier(i)));
             }
         }
 
@@ -892,6 +1008,9 @@ namespace AICompanionRoguelike.Roguelike
             for (int i = 0; i < currentRouteHistory.Count; i++)
             {
                 RoomType roomType = currentRouteHistory[i];
+                RoomModifierType modifier = i < currentRouteModifierHistory.Count
+                    ? currentRouteModifierHistory[i]
+                    : RoomModifierType.None;
                 bool isCurrent = i == currentRouteHistory.Count - 1;
                 currentRouteMapNodes.Add(new RouteMapNode(
                     roomType,
@@ -901,13 +1020,16 @@ namespace AICompanionRoguelike.Roguelike
                     isCurrent,
                     false,
                     roomType == RoomType.BossRoom,
-                    -1));
+                    -1,
+                    modifier,
+                    RoomModifierRules.GetShortLabel(modifier)));
             }
 
             int nextStepNumber = Mathf.Max(1, CurrentRoomNumber + 1);
             for (int i = 0; i < currentRoomChoices.Count; i++)
             {
                 RoomType choice = currentRoomChoices[i];
+                RoomModifierType modifier = GetPreparedRoomChoiceModifier(i);
                 if (choice == RoomType.BranchEventRoom)
                 {
                     continue;
@@ -921,7 +1043,9 @@ namespace AICompanionRoguelike.Roguelike
                     false,
                     true,
                     choice == RoomType.BossRoom,
-                    i));
+                    i,
+                    modifier,
+                    RoomModifierRules.GetShortLabel(modifier)));
             }
 
             if (ShouldAddBossEndpointNode())
@@ -959,38 +1083,69 @@ namespace AICompanionRoguelike.Roguelike
             return false;
         }
 
-        private RoomChoicePreview CreateRoomChoicePreview(RoomType roomType)
+        private RoomModifierType GetPreparedRoomChoiceModifier(int index)
+        {
+            return index >= 0 && index < currentRoomChoiceModifiers.Count
+                ? currentRoomChoiceModifiers[index]
+                : RoomModifierType.None;
+        }
+
+        private static bool ShouldAllowModifier(RoomType roomType)
         {
             switch (roomType)
             {
                 case RoomType.BattleRoom:
-                    return new RoomChoicePreview(
+                case RoomType.EliteRoom:
+                case RoomType.SafeRoom:
+                case RoomType.ShopRoom:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static string FormatRoomTypeWithModifier(RoomType roomType, RoomModifierType modifier)
+        {
+            return RoomModifierRules.FormatRoomWithModifier(GetRoomShortLabel(roomType), modifier);
+        }
+
+        private RoomChoicePreview CreateRoomChoicePreview(RoomType roomType, RoomModifierType modifier)
+        {
+            RoomModifierPreview modifierPreview = RoomModifierRules.CreatePreview(roomType, modifier);
+            switch (roomType)
+            {
+                case RoomType.BattleRoom:
+                    return CreateModifiedRoomChoicePreview(
                         roomType,
                         "Battle Room",
                         "Threat: normal enemy group.",
-                        BuildRewardPreview(roomType),
-                        "Route: clear enemies, then choose a standard reward.");
+                        BuildRewardPreview(roomType, modifier),
+                        "Route: clear enemies, then choose a standard reward.",
+                        modifierPreview);
                 case RoomType.EliteRoom:
-                    return new RoomChoicePreview(
+                    return CreateModifiedRoomChoicePreview(
                         roomType,
                         "Elite Room",
                         "Threat: stronger enemy group.",
-                        BuildRewardPreview(roomType),
-                        "Route: higher risk for a wider reward draft.");
+                        BuildRewardPreview(roomType, modifier),
+                        "Route: higher risk for a wider reward draft.",
+                        modifierPreview);
                 case RoomType.SafeRoom:
-                    return new RoomChoicePreview(
+                    return CreateModifiedRoomChoicePreview(
                         roomType,
                         "Safe Room",
                         "Threat: safe, no enemies.",
-                        $"Reward: restore {safeRoomHealAmount:0} HP.",
-                        "Route: recover, then pick the next path.");
+                        $"Reward: restore {safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(modifier):0} HP.",
+                        "Route: recover, then pick the next path.",
+                        modifierPreview);
                 case RoomType.ShopRoom:
-                    return new RoomChoicePreview(
+                    return CreateModifiedRoomChoicePreview(
                         roomType,
                         "Supply Room",
                         "Threat: safe, no enemies.",
-                        BuildRewardPreview(roomType),
-                        "Route: take a smaller reward draft without combat.");
+                        BuildRewardPreview(roomType, modifier),
+                        "Route: take a smaller reward draft without combat.",
+                        modifierPreview);
                 case RoomType.BossRoom:
                     return new RoomChoicePreview(
                         roomType,
@@ -999,19 +1154,44 @@ namespace AICompanionRoguelike.Roguelike
                         "Reward: complete the run and return home.",
                         "Route: final challenge.");
                 default:
-                    return new RoomChoicePreview(
+                    return CreateModifiedRoomChoicePreview(
                         roomType,
                         roomType.ToString(),
                         "Threat: unknown.",
                         "Reward: unknown.",
-                        "Route: scout ahead.");
+                        "Route: scout ahead.",
+                        modifierPreview);
             }
         }
 
-        private string BuildRewardPreview(RoomType roomType)
+        private static RoomChoicePreview CreateModifiedRoomChoicePreview(
+            RoomType roomType,
+            string title,
+            string threatPreview,
+            string rewardPreview,
+            string routeNote,
+            RoomModifierPreview modifierPreview)
+        {
+            string fullTitle = modifierPreview.HasModifier
+                ? $"{title} - {modifierPreview.Title}"
+                : title;
+            return new RoomChoicePreview(
+                roomType,
+                fullTitle,
+                threatPreview,
+                rewardPreview,
+                routeNote,
+                modifierPreview.ModifierType,
+                modifierPreview.Title,
+                modifierPreview.RiskPreview,
+                modifierPreview.RewardPreview,
+                modifierPreview.RouteNote);
+        }
+
+        private string BuildRewardPreview(RoomType roomType, RoomModifierType modifier)
         {
             int candidateCount = BuildRewardCandidateList().Count;
-            int count = GetRewardChoiceTargetCount(roomType, candidateCount);
+            int count = GetRewardChoiceTargetCount(roomType, modifier, candidateCount);
             string buildHint = GetCurrentBuildRewardType().HasValue
                 ? " Current AI Build upgrade can appear."
                 : string.Empty;

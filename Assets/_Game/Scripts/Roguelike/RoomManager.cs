@@ -61,6 +61,7 @@ namespace AICompanionRoguelike.Roguelike
         public event Action<RoomManager, RoomType, int> RoomCleared;
 
         public RoomType CurrentRoomType { get; private set; }
+        public RoomModifierType CurrentRoomModifier { get; private set; }
         public int CurrentRoomNumber { get; private set; }
         public bool IsRoomActive { get; private set; }
         public bool IsRoomCleared { get; private set; }
@@ -84,10 +85,16 @@ namespace AICompanionRoguelike.Roguelike
 
         public void EnterRoom(RoomType roomType, int roomNumber)
         {
+            EnterRoom(roomType, roomNumber, RoomModifierType.None);
+        }
+
+        public void EnterRoom(RoomType roomType, int roomNumber, RoomModifierType roomModifier)
+        {
             ResolveReferences();
             ClearSpawnedEnemies();
 
             CurrentRoomType = roomType;
+            CurrentRoomModifier = ShouldAllowModifier(roomType) ? roomModifier : RoomModifierType.None;
             CurrentRoomNumber = Mathf.Max(1, roomNumber);
             IsRoomActive = true;
             IsRoomCleared = false;
@@ -172,17 +179,23 @@ namespace AICompanionRoguelike.Roguelike
 
         private int GetEnemyCount(RoomType roomType)
         {
+            int baseCount;
             switch (roomType)
             {
                 case RoomType.BattleRoom:
-                    return battleEnemyCount;
+                    baseCount = battleEnemyCount;
+                    break;
                 case RoomType.EliteRoom:
-                    return eliteEnemyCount;
+                    baseCount = eliteEnemyCount;
+                    break;
                 case RoomType.BossRoom:
-                    return bossEnemyCount;
+                    baseCount = bossEnemyCount;
+                    break;
                 default:
                     return 0;
             }
+
+            return Mathf.Max(0, baseCount + RoomModifierRules.GetExtraEnemyCount(CurrentRoomModifier));
         }
 
         private void SpawnEnemy(int index, int enemyCount)
@@ -242,25 +255,59 @@ namespace AICompanionRoguelike.Roguelike
             if (CurrentRoomType == RoomType.EliteRoom)
             {
                 ApplyEnemyTuning(enemyObject, eliteHealthMultiplier, eliteDamageMultiplier, eliteScaleMultiplier, eliteTint);
-                return;
             }
 
             if (CurrentRoomType == RoomType.BossRoom)
             {
                 ConfigureBossEnemy(enemyObject);
+                return;
+            }
+
+            ApplyRoomModifierEnemyTuning(enemyObject);
+        }
+
+        private void ApplyRoomModifierEnemyTuning(GameObject enemyObject)
+        {
+            if (!ShouldAllowModifier(CurrentRoomType) || CurrentRoomModifier == RoomModifierType.None)
+            {
+                return;
+            }
+
+            ApplyEnemyTuning(
+                enemyObject,
+                RoomModifierRules.GetEnemyHealthMultiplier(CurrentRoomModifier),
+                RoomModifierRules.GetEnemyDamageMultiplier(CurrentRoomModifier),
+                RoomModifierRules.GetEnemyScaleMultiplier(CurrentRoomModifier),
+                RoomModifierRules.GetEnemyTint(CurrentRoomModifier));
+        }
+
+        private static bool ShouldAllowModifier(RoomType roomType)
+        {
+            switch (roomType)
+            {
+                case RoomType.BattleRoom:
+                case RoomType.EliteRoom:
+                case RoomType.SafeRoom:
+                case RoomType.ShopRoom:
+                    return true;
+                default:
+                    return false;
             }
         }
 
         private string GetEnemyName(int index)
         {
+            string modifierPrefix = string.IsNullOrWhiteSpace(RoomModifierRules.GetShortLabel(CurrentRoomModifier))
+                ? string.Empty
+                : $"{RoomModifierRules.GetShortLabel(CurrentRoomModifier)}_";
             switch (CurrentRoomType)
             {
                 case RoomType.BossRoom:
                     return $"Boss_Room{CurrentRoomNumber}_{index + 1}";
                 case RoomType.EliteRoom:
-                    return $"Elite_{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+                    return $"{modifierPrefix}Elite_{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
                 default:
-                    return $"{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
+                    return $"{modifierPrefix}{enemyPrefab.name}_Room{CurrentRoomNumber}_{index + 1}";
             }
         }
 
