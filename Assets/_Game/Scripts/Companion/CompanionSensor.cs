@@ -1,5 +1,6 @@
 using System;
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Enemy;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Companion
@@ -8,6 +9,7 @@ namespace AICompanionRoguelike.Companion
     {
         [Header("References")]
         [SerializeField] private HealthComponent ownerHealth;
+        [SerializeField] private Transform protectedPlayer;
 
         [Header("Detection")]
         [SerializeField, Min(0f)] private float detectionRadius = 4f;
@@ -19,12 +21,17 @@ namespace AICompanionRoguelike.Companion
         private ContactFilter2D enemyFilter;
         private float scanTimer;
         private HealthComponent currentTargetHealth;
+        private CompanionTargetDecisionReason currentTargetDecisionReason;
+        private float currentTargetScore = float.NegativeInfinity;
 
         public event Action<HealthComponent> TargetChanged;
 
         public HealthComponent CurrentTargetHealth => currentTargetHealth;
         public Transform CurrentTarget => currentTargetHealth != null ? currentTargetHealth.transform : null;
         public bool HasTarget => IsValidTarget(currentTargetHealth);
+        public CompanionTargetDecisionReason CurrentTargetDecisionReason => currentTargetDecisionReason;
+        public float CurrentTargetScore => currentTargetScore;
+        public EnemyArchetypeType CurrentTargetArchetype => ResolveArchetype(currentTargetHealth);
 
         private void Reset()
         {
@@ -34,6 +41,7 @@ namespace AICompanionRoguelike.Companion
         private void Awake()
         {
             ownerHealth = ownerHealth != null ? ownerHealth : GetComponent<HealthComponent>();
+            ResolveProtectedPlayer();
             ConfigureEnemyFilter();
         }
 
@@ -63,13 +71,16 @@ namespace AICompanionRoguelike.Companion
         public HealthComponent ScanNow()
         {
             HealthComponent nextTarget = null;
+            CompanionTargetDecisionReason nextReason = CompanionTargetDecisionReason.None;
+            float nextScore = float.NegativeInfinity;
 
             if (ownerHealth == null || !ownerHealth.IsDead)
             {
-                nextTarget = FindNearestTarget();
+                ResolveProtectedPlayer();
+                nextTarget = FindHighestPriorityTarget(out nextReason, out nextScore);
             }
 
-            SetCurrentTarget(nextTarget);
+            SetCurrentTarget(nextTarget, nextReason, nextScore);
             return currentTargetHealth;
         }
 
@@ -83,11 +94,15 @@ namespace AICompanionRoguelike.Companion
             };
         }
 
-        private HealthComponent FindNearestTarget()
+        private HealthComponent FindHighestPriorityTarget(
+            out CompanionTargetDecisionReason selectedReason,
+            out float selectedScore)
         {
             int hitCount = Physics2D.OverlapCircle(transform.position, detectionRadius, enemyFilter, hitBuffer);
-            HealthComponent nearestTarget = null;
-            float nearestSqrDistance = float.PositiveInfinity;
+            HealthComponent highestPriorityTarget = null;
+            float highestScore = float.NegativeInfinity;
+            float shortestDistance = float.PositiveInfinity;
+            CompanionTargetDecisionReason highestPriorityReason = CompanionTargetDecisionReason.None;
 
             for (int i = 0; i < hitCount; i++)
             {
@@ -97,17 +112,42 @@ namespace AICompanionRoguelike.Companion
                     continue;
                 }
 
-                float sqrDistance = ((Vector2)candidate.transform.position - (Vector2)transform.position).sqrMagnitude;
-                if (sqrDistance >= nearestSqrDistance)
+                float companionDistance = Vector2.Distance(transform.position, candidate.transform.position);
+                float playerDistance = protectedPlayer != null
+                    ? Vector2.Distance(protectedPlayer.position, candidate.transform.position)
+                    : detectionRadius;
+                EnemyArchetypeType archetype = ResolveArchetype(candidate);
+                EnemyAttack2D attack = candidate.GetComponent<EnemyAttack2D>();
+                bool warningActive = attack != null && attack.IsWarningActive;
+                float score = CompanionTargetPriorityRules.EvaluateScore(
+                    archetype,
+                    CompanionRunBuildState.CurrentTendency,
+                    companionDistance,
+                    playerDistance,
+                    warningActive,
+                    candidate == currentTargetHealth);
+
+                bool hasHigherScore = score > highestScore + 0.001f;
+                bool winsDistanceTie = Mathf.Abs(score - highestScore) <= 0.001f
+                    && companionDistance < shortestDistance;
+                if (!hasHigherScore && !winsDistanceTie)
                 {
                     continue;
                 }
 
-                nearestTarget = candidate;
-                nearestSqrDistance = sqrDistance;
+                highestPriorityTarget = candidate;
+                highestScore = score;
+                shortestDistance = companionDistance;
+                highestPriorityReason = CompanionTargetPriorityRules.EvaluateReason(
+                    archetype,
+                    CompanionRunBuildState.CurrentTendency,
+                    playerDistance,
+                    warningActive);
             }
 
-            return nearestTarget;
+            selectedReason = highestPriorityReason;
+            selectedScore = highestScore;
+            return highestPriorityTarget;
         }
 
         private static HealthComponent GetHealthFromCollider(Collider2D hit)
@@ -139,14 +179,42 @@ namespace AICompanionRoguelike.Companion
             return (enemyLayerMask.value & (1 << layer)) != 0;
         }
 
-        private void SetCurrentTarget(HealthComponent nextTarget)
+        private static EnemyArchetypeType ResolveArchetype(HealthComponent targetHealth)
         {
-            if (currentTargetHealth == nextTarget)
+            if (targetHealth != null && targetHealth.TryGetComponent(out EnemyArchetype2D archetype))
+            {
+                return archetype.ArchetypeType;
+            }
+
+            return EnemyArchetypeType.Melee;
+        }
+
+        private void ResolveProtectedPlayer()
+        {
+            if (protectedPlayer != null)
             {
                 return;
             }
 
+            GameObject player = GameObject.Find("Player");
+            protectedPlayer = player != null ? player.transform : null;
+        }
+
+        private void SetCurrentTarget(
+            HealthComponent nextTarget,
+            CompanionTargetDecisionReason nextReason,
+            float nextScore)
+        {
+            if (currentTargetHealth == nextTarget)
+            {
+                currentTargetDecisionReason = nextReason;
+                currentTargetScore = nextScore;
+                return;
+            }
+
             currentTargetHealth = nextTarget;
+            currentTargetDecisionReason = nextReason;
+            currentTargetScore = nextScore;
             TargetChanged?.Invoke(currentTargetHealth);
         }
 

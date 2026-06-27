@@ -1,4 +1,5 @@
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.QTE;
 using AICompanionRoguelike.Roguelike;
@@ -14,6 +15,7 @@ namespace AICompanionRoguelike.Companion
         [Header("References")]
         [SerializeField] private CompanionRelationship relationship;
         [SerializeField] private CompanionSpeechBubbleUI speechBubble;
+        [SerializeField] private CompanionSensor sensor;
         [SerializeField] private QTEManager qteManager;
         [SerializeField] private HealthComponent playerHealth;
         [SerializeField] private RoomManager roomManager;
@@ -30,6 +32,7 @@ namespace AICompanionRoguelike.Companion
         private QTEManager subscribedQteManager;
         private HealthComponent subscribedPlayerHealth;
         private RoomManager subscribedRoomManager;
+        private CompanionSensor subscribedSensor;
         private float nextAllowedDialogueTime;
         private float nextLowHealthDialogueTime;
 
@@ -49,6 +52,7 @@ namespace AICompanionRoguelike.Companion
             SubscribeToQteManager();
             SubscribeToPlayerHealth();
             SubscribeToRoomManager();
+            SubscribeToSensor();
             CompanionRunFeedback.FeedbackRaised += HandleRunFeedbackRaised;
         }
 
@@ -58,6 +62,7 @@ namespace AICompanionRoguelike.Companion
             SubscribeToQteManager();
             SubscribeToPlayerHealth();
             SubscribeToRoomManager();
+            SubscribeToSensor();
         }
 
         private void Update()
@@ -70,6 +75,7 @@ namespace AICompanionRoguelike.Companion
             SubscribeToQteManager();
             SubscribeToPlayerHealth();
             SubscribeToRoomManager();
+            SubscribeToSensor();
         }
 
         private void OnDisable()
@@ -77,6 +83,7 @@ namespace AICompanionRoguelike.Companion
             UnsubscribeFromQteManager();
             UnsubscribeFromPlayerHealth();
             UnsubscribeFromRoomManager();
+            UnsubscribeFromSensor();
             CompanionRunFeedback.FeedbackRaised -= HandleRunFeedbackRaised;
         }
 
@@ -143,6 +150,7 @@ namespace AICompanionRoguelike.Companion
         {
             relationship = relationship != null ? relationship : GetComponent<CompanionRelationship>();
             speechBubble = speechBubble != null ? speechBubble : GetComponent<CompanionSpeechBubbleUI>();
+            sensor = sensor != null ? sensor : GetComponent<CompanionSensor>();
 
             qteManager = qteManager != null ? qteManager : QTEManager.Instance;
             if (qteManager == null)
@@ -246,6 +254,52 @@ namespace AICompanionRoguelike.Companion
             subscribedRoomManager.RoomStarted -= HandleRoomStarted;
             subscribedRoomManager.RoomCleared -= HandleRoomCleared;
             subscribedRoomManager = null;
+        }
+
+        private void SubscribeToSensor()
+        {
+            if (sensor == subscribedSensor)
+            {
+                return;
+            }
+
+            UnsubscribeFromSensor();
+            if (sensor == null)
+            {
+                return;
+            }
+
+            subscribedSensor = sensor;
+            subscribedSensor.TargetChanged += HandleTargetChanged;
+        }
+
+        private void UnsubscribeFromSensor()
+        {
+            if (subscribedSensor == null)
+            {
+                return;
+            }
+
+            subscribedSensor.TargetChanged -= HandleTargetChanged;
+            subscribedSensor = null;
+        }
+
+        private void HandleTargetChanged(HealthComponent targetHealth)
+        {
+            if (targetHealth == null
+                || sensor == null
+                || !targetHealth.TryGetComponent(out EnemyArchetype2D archetype))
+            {
+                return;
+            }
+
+            string line = CompanionTargetPriorityRules.BuildDecisionLine(
+                archetype.ArchetypeType,
+                CompanionRunBuildState.CurrentTendency,
+                sensor.CurrentTargetDecisionReason);
+            int priority = CompanionTargetPriorityRules.GetDecisionPriority(
+                sensor.CurrentTargetDecisionReason);
+            TryShowLine(line, priority);
         }
 
         private void HandleRunFeedbackRaised(CompanionRunFeedback source, string message)
