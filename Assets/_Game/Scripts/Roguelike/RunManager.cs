@@ -759,11 +759,11 @@ namespace AICompanionRoguelike.Roguelike
             {
                 case RoomType.BattleRoom:
                     return AppendModifierFeedback(
-                        $"Combat Started - Battle Room: Enemy Types Melee/Ranged. Read each enemy warning, then clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        $"Combat Started - Battle Room: Enemy Types Melee/Ranged. Read each enemy warning, evade Melee lunges, and dodge visible projectiles, then clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
                         modifierLine);
                 case RoomType.EliteRoom:
                     return AppendModifierFeedback(
-                        $"Combat Started - Elite Room: Enemy Types Guard/Ranged. Larger enemies hit harder, so watch enemy warning zones for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        $"Combat Started - Elite Room: Enemy Types Guard/Ranged. Blocked frontal hits deal less damage; punish the Guard opening after it attacks for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
                         modifierLine);
                 case RoomType.SafeRoom:
                     return AppendModifierFeedback($"Safe Room: restored {restoredHealth:0} HP. No enemies here.", modifierLine);

@@ -433,7 +433,7 @@ MonoBehaviour:
   enemyPrefab: {fileID: 3209252624947422616, guid: f3ac8d31084f2ed4cac1be95a88d49cc, type: 3}
   playerTarget: {fileID: 1337357273}
   enemyContainer: {fileID: 864806903}
-  battleEnemyCount: 1
+  battleEnemyCount: 2
   eliteEnemyCount: 2
   spawnPositions:
   - {x: 3.2, y: -1.15}

@@ -328,6 +328,7 @@ namespace AICompanionRoguelike.Roguelike
                     EnemyArchetypeRules.GetWarningDuration(archetypeType),
                     EnemyArchetypeRules.GetWarningSize(archetypeType),
                     EnemyArchetypeRules.GetRoleColor(archetypeType));
+                attack.ConfigureArchetypeBehavior(archetypeType);
             }
 
             EnemyController2D controller = enemyObject.GetComponent<EnemyController2D>();
@@ -338,6 +339,14 @@ namespace AICompanionRoguelike.Roguelike
                     EnemyArchetypeRules.GetMoveSpeed(archetypeType),
                     EnemyArchetypeRules.GetStopDistance(archetypeType));
             }
+
+            EnemyAttackPattern2D attackPattern = enemyObject.GetComponent<EnemyAttackPattern2D>();
+            if (attackPattern == null)
+            {
+                attackPattern = enemyObject.AddComponent<EnemyAttackPattern2D>();
+            }
+
+            attackPattern.Configure(archetypeType);
 
             SpriteRenderer spriteRenderer = enemyObject.GetComponent<SpriteRenderer>();
             if (spriteRenderer != null)

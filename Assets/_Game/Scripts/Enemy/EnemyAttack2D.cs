@@ -13,6 +13,8 @@ namespace AICompanionRoguelike.Enemy
         [SerializeField] private Vector2 warningSize = new Vector2(1.35f, 0.8f);
         [SerializeField] private Color warningColor = new Color(1f, 0.18f, 0.08f, 0.42f);
         [SerializeField] private int warningSortingOrder = 42;
+        [SerializeField] private EnemyAttackDeliveryMode deliveryMode = EnemyAttackDeliveryMode.Direct;
+        [SerializeField, Min(0.1f)] private float projectileSpeed = 7f;
 
         private EnemyController2D owner;
         private float cooldownTimer;
@@ -24,6 +26,7 @@ namespace AICompanionRoguelike.Enemy
         private SpriteRenderer warningRenderer;
         private bool isWarningActive;
         private float warningTimer;
+        private EnemyProjectile2D lastSpawnedProjectile;
 
         private static Sprite sharedWarningSprite;
 
@@ -41,6 +44,8 @@ namespace AICompanionRoguelike.Enemy
         public bool IsWarningActive => isWarningActive;
         public bool HasWarningVisual => warningRenderer != null;
         public float WarningProgress01 => warningDuration <= 0f ? 1f : Mathf.Clamp01(1f - (warningTimer / warningDuration));
+        public EnemyAttackDeliveryMode DeliveryMode => deliveryMode;
+        public EnemyProjectile2D LastSpawnedProjectile => lastSpawnedProjectile;
 
         private void Awake()
         {
@@ -123,7 +128,20 @@ namespace AICompanionRoguelike.Enemy
 
             if (warningDuration <= 0f)
             {
-                ResolveImmediateAttack(target, targetHealth);
+                if (deliveryMode == EnemyAttackDeliveryMode.Projectile)
+                {
+                    bool launched = LaunchProjectile(target, targetHealth);
+                    cooldownTimer = cooldown;
+                    if (!launched)
+                    {
+                        AttackResolved?.Invoke(this, false);
+                    }
+                }
+                else
+                {
+                    ResolveImmediateAttack(target, targetHealth);
+                }
+
                 return;
             }
 
@@ -149,6 +167,14 @@ namespace AICompanionRoguelike.Enemy
             warningColor = newWarningColor;
             cooldownTimer = Mathf.Min(cooldownTimer, cooldown);
             UpdateWarningVisual();
+        }
+
+        public void ConfigureArchetypeBehavior(EnemyArchetypeType archetypeType)
+        {
+            deliveryMode = archetypeType == EnemyArchetypeType.Ranged
+                ? EnemyAttackDeliveryMode.Projectile
+                : EnemyAttackDeliveryMode.Direct;
+            projectileSpeed = EnemyArchetypeRules.GetProjectileSpeed();
         }
 
         public void ApplyTacticalSuppression(float duration, float damageMultiplier)
@@ -210,6 +236,12 @@ namespace AICompanionRoguelike.Enemy
 
         private void ResolveWarnedAttack()
         {
+            if (deliveryMode == EnemyAttackDeliveryMode.Projectile)
+            {
+                ResolveWarnedProjectileAttack();
+                return;
+            }
+
             bool hit = false;
             if (warnedTarget != null)
             {
@@ -231,6 +263,65 @@ namespace AICompanionRoguelike.Enemy
             warnedTargetHealth = null;
             cooldownTimer = cooldown;
             SetWarningVisualActive(false);
+            AttackResolved?.Invoke(this, hit);
+        }
+
+        private void ResolveWarnedProjectileAttack()
+        {
+            bool launched = false;
+            if (warnedTarget != null)
+            {
+                warnedTargetHealth = warnedTargetHealth != null
+                    ? warnedTargetHealth
+                    : ResolveTargetHealth(warnedTarget);
+
+                if (warnedTargetHealth != null
+                    && !warnedTargetHealth.IsDead
+                    && Vector2.Distance(transform.position, warnedTarget.position) <= attackRange)
+                {
+                    launched = LaunchProjectile(warnedTarget, warnedTargetHealth);
+                }
+            }
+
+            isWarningActive = false;
+            warnedTarget = null;
+            warnedTargetHealth = null;
+            cooldownTimer = cooldown;
+            SetWarningVisualActive(false);
+
+            if (!launched)
+            {
+                AttackResolved?.Invoke(this, false);
+            }
+        }
+
+        private bool LaunchProjectile(Transform target, HealthComponent targetHealth)
+        {
+            if (target == null || targetHealth == null || targetHealth.IsDead)
+            {
+                return false;
+            }
+
+            Vector2 launchDirection = (Vector2)target.position - (Vector2)transform.position;
+            if (launchDirection.sqrMagnitude <= 0.0001f)
+            {
+                return false;
+            }
+
+            lastSpawnedProjectile = EnemyProjectile2D.Create(
+                transform.position,
+                launchDirection,
+                targetHealth,
+                CurrentDamage,
+                gameObject,
+                projectileSpeed,
+                warningColor,
+                HandleProjectileResolved);
+            return lastSpawnedProjectile != null;
+        }
+
+        private void HandleProjectileResolved(bool hit)
+        {
             AttackResolved?.Invoke(this, hit);
         }
 

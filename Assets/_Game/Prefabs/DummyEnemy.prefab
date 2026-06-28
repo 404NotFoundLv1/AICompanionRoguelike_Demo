@@ -383,6 +383,12 @@ MonoBehaviour:
   damage: 10
   cooldown: 1
   attackRange: 1.2
+  warningDuration: 0.35
+  warningSize: {x: 1.35, y: 0.8}
+  warningColor: {r: 1, g: 0.18, b: 0.08, a: 0.42}
+  warningSortingOrder: 42
+  deliveryMode: 0
+  projectileSpeed: 7
 --- !u!114 &1239752055737523404
 MonoBehaviour:
   m_ObjectHideFlags: 0

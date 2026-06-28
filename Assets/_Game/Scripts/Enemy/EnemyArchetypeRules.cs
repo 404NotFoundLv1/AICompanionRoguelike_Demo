@@ -22,11 +22,11 @@ namespace AICompanionRoguelike.Enemy
             switch (archetypeType)
             {
                 case EnemyArchetypeType.Ranged:
-                    return "range pressure: longer warning lane, lower health";
+                    return "range pressure: dodge the visible projectile";
                 case EnemyArchetypeType.Guard:
-                    return "slow guard: high health, slower movement, longer windup";
+                    return "slow front guard: punish the opening after its attack";
                 default:
-                    return "close pressure: standard chase and short warning";
+                    return "close pressure: short warning followed by a lunge";
             }
         }
 
@@ -155,6 +155,36 @@ namespace AICompanionRoguelike.Enemy
         public static float GetStopDistance(EnemyArchetypeType archetypeType)
         {
             return archetypeType == EnemyArchetypeType.Ranged ? 2.65f : 0.9f;
+        }
+
+        public static float GetMeleeLungeSpeed()
+        {
+            return 5.5f;
+        }
+
+        public static float GetMeleeLungeDistance()
+        {
+            return 0.75f;
+        }
+
+        public static float GetProjectileSpeed()
+        {
+            return 7f;
+        }
+
+        public static float GetGuardBlockMultiplier()
+        {
+            return 0.35f;
+        }
+
+        public static float GetGuardVulnerabilityMultiplier()
+        {
+            return 1.35f;
+        }
+
+        public static float GetGuardVulnerabilityDuration()
+        {
+            return 1.1f;
         }
     }
 }

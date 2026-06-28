@@ -43,6 +43,7 @@ namespace AICompanionRoguelike.Enemy
         public float DetectionRange => detectionRange;
         public float MoveSpeed => moveSpeed;
         public float StopDistance => stopDistance;
+        public float EffectiveAttackRange => attack != null ? attack.AttackRange : attackRange;
         public float CurrentMoveSpeed => moveSpeed * TacticalMoveSpeedMultiplier;
         public bool IsTacticallySuppressed => tacticalSuppressionTimer > 0f;
         public float TacticalMoveSpeedMultiplier => IsTacticallySuppressed ? tacticalMoveSpeedMultiplier : 1f;
@@ -102,7 +103,7 @@ namespace AICompanionRoguelike.Enemy
 
             UpdateFacingDirection();
 
-            if (distanceToTarget <= attackRange)
+            if (distanceToTarget <= EffectiveAttackRange)
             {
                 ChangeState(EnemyState.Attack);
                 StopMoving();
@@ -210,7 +211,7 @@ namespace AICompanionRoguelike.Enemy
             Gizmos.DrawWireSphere(transform.position, detectionRange);
 
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, attackRange);
+            Gizmos.DrawWireSphere(transform.position, EffectiveAttackRange);
         }
     }
 }
