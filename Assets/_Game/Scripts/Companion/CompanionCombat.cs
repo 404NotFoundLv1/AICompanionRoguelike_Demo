@@ -1,4 +1,5 @@
 using AICompanionRoguelike.Combat;
+using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Companion
@@ -22,6 +23,7 @@ namespace AICompanionRoguelike.Companion
 
         public float Damage => damage;
         public float Cooldown => cooldown;
+        public float EffectiveCooldown => cooldown * GetGrowthRouteCooldownMultiplier();
 
         private void Reset()
         {
@@ -78,7 +80,7 @@ namespace AICompanionRoguelike.Companion
             float previousHealth = targetHealth.CurrentHealth;
             targetHealth.TakeDamage(damageInfo);
             float appliedDamage = Mathf.Max(0f, previousHealth - targetHealth.CurrentHealth);
-            cooldownTimer = cooldown;
+            cooldownTimer = EffectiveCooldown;
 
             if (movement != null && targetHealth != null && appliedDamage > 0f)
             {
@@ -89,7 +91,13 @@ namespace AICompanionRoguelike.Companion
         public void MultiplyCooldown(float multiplier)
         {
             cooldown = Mathf.Max(0.05f, cooldown * Mathf.Max(0f, multiplier));
-            cooldownTimer = Mathf.Min(cooldownTimer, cooldown);
+            cooldownTimer = Mathf.Min(cooldownTimer, EffectiveCooldown);
+        }
+
+        private static float GetGrowthRouteCooldownMultiplier()
+        {
+            RunManager runManager = RunManager.FindActiveRunManager();
+            return runManager != null ? runManager.CompanionRouteCooldownMultiplier : 1f;
         }
 
         private void OnDrawGizmosSelected()

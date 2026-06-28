@@ -1,4 +1,5 @@
 using AICompanionRoguelike.Character;
+using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Combat
@@ -28,6 +29,7 @@ namespace AICompanionRoguelike.Combat
 
         public float Damage => damage;
         public float Cooldown => cooldown;
+        public float EffectiveDamage => damage * GetGrowthRouteDamageMultiplier();
 
         private void Reset()
         {
@@ -82,7 +84,10 @@ namespace AICompanionRoguelike.Combat
             int hitCount = Physics2D.OverlapBox(center, attackBoxSize, 0f, targetFilter, hitBuffer);
             branchChoiceBuff = branchChoiceBuff != null ? branchChoiceBuff : GetComponent<PlayerBranchChoiceBuff>();
             float outgoingMultiplier = branchChoiceBuff != null ? branchChoiceBuff.OutgoingDamageMultiplier : 1f;
-            DamageInfo damageInfo = new DamageInfo(damage * outgoingMultiplier, DamageSourceType.Player, gameObject);
+            DamageInfo damageInfo = new DamageInfo(
+                damage * outgoingMultiplier * GetGrowthRouteDamageMultiplier(),
+                DamageSourceType.Player,
+                gameObject);
             PlayerCounterplayFeedback[] counterplayFeedbacks = GetComponents<PlayerCounterplayFeedback>();
 
             for (int i = 0; i < hitCount; i++)
@@ -129,6 +134,12 @@ namespace AICompanionRoguelike.Combat
         public void MultiplyDamage(float multiplier)
         {
             damage = Mathf.Max(0f, damage * Mathf.Max(0f, multiplier));
+        }
+
+        private static float GetGrowthRouteDamageMultiplier()
+        {
+            RunManager runManager = RunManager.FindActiveRunManager();
+            return runManager != null ? runManager.PlayerRouteDamageMultiplier : 1f;
         }
 
         private void OnDrawGizmosSelected()

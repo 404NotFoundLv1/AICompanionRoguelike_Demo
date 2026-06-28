@@ -2,6 +2,7 @@ using System;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Companion
@@ -15,6 +16,7 @@ namespace AICompanionRoguelike.Companion
         [SerializeField] private CompanionCombatDialogueController dialogue;
         [SerializeField] private HealthComponent playerHealth;
         [SerializeField] private PlayerBossSupportShield playerShield;
+        [SerializeField] private RunManager runManager;
 
         [Header("Triggers")]
         [SerializeField, Range(0.05f, 1f)] private float lowHealthGuardThreshold = 0.35f;
@@ -241,6 +243,7 @@ namespace AICompanionRoguelike.Companion
             relationship = relationship != null ? relationship : GetComponent<CompanionRelationship>();
             sensor = sensor != null ? sensor : GetComponent<CompanionSensor>();
             dialogue = dialogue != null ? dialogue : GetComponent<CompanionCombatDialogueController>();
+            runManager = runManager != null ? runManager : RunManager.FindActiveRunManager();
 
             if (playerHealth == null)
             {
@@ -273,7 +276,8 @@ namespace AICompanionRoguelike.Companion
 
         private CompanionTacticalSupportTuning GetCurrentTuning()
         {
-            return CompanionTacticalSupportRules.Evaluate(BuildProfile(), CurrentTendency);
+            int routeBonusLevel = runManager != null ? runManager.BuildRouteBonusLevel : 0;
+            return CompanionTacticalSupportRules.Evaluate(BuildProfile(), CurrentTendency, routeBonusLevel);
         }
 
         private void TrySpeakBuildActivationFeedback(CompanionDialogueEventType eventType, int priority)

@@ -49,6 +49,14 @@ namespace AICompanionRoguelike.Companion
             CompanionRelationshipProfileSnapshot profile,
             CompanionSkillTendency tendency)
         {
+            return Evaluate(profile, tendency, 0);
+        }
+
+        public static CompanionTacticalSupportTuning Evaluate(
+            CompanionRelationshipProfileSnapshot profile,
+            CompanionSkillTendency tendency,
+            int routeBonusLevel)
+        {
             float guardDuration;
             float guardDamageMultiplier;
             float guardCooldown;
@@ -130,7 +138,7 @@ namespace AICompanionRoguelike.Companion
                     break;
             }
 
-            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(tendency);
+            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(tendency) + Mathf.Max(0, routeBonusLevel);
             if (upgradeLevel > 0)
             {
                 switch (tendency)

@@ -98,12 +98,17 @@ namespace AICompanionRoguelike.Companion
 
         public static float GetQteCooldownMultiplier(CompanionSkillTendency tendency)
         {
+            return GetQteCooldownMultiplier(tendency, 0);
+        }
+
+        public static float GetQteCooldownMultiplier(CompanionSkillTendency tendency, int routeBonusLevel)
+        {
             if (tendency != CompanionSkillTendency.Link)
             {
                 return 1f;
             }
 
-            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(CompanionSkillTendency.Link);
+            int upgradeLevel = CompanionRunBuildState.GetUpgradeLevel(CompanionSkillTendency.Link) + Mathf.Max(0, routeBonusLevel);
             return 0.7f * Mathf.Pow(0.9f, upgradeLevel);
         }
 

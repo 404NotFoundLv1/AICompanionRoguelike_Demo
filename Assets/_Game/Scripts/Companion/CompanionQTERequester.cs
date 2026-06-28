@@ -3,6 +3,7 @@ using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.QTE;
+using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -41,8 +42,11 @@ namespace AICompanionRoguelike.Companion
             {
                 int trust = relationship != null ? relationship.Trust : 50;
                 float relationshipMultiplier = CompanionRelationshipProfile.GetQteCooldownMultiplier(trust);
+                RunManager runManager = RunManager.FindActiveRunManager();
+                int routeBonusLevel = runManager != null ? runManager.BuildRouteBonusLevel : 0;
                 float tendencyMultiplier = CompanionSkillTendencyRules.GetQteCooldownMultiplier(
-                    CompanionRunBuildState.CurrentTendency);
+                    CompanionRunBuildState.CurrentTendency,
+                    routeBonusLevel);
                 return Mathf.Max(0.1f, requestCooldown * relationshipMultiplier * tendencyMultiplier);
             }
         }

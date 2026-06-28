@@ -26,6 +26,7 @@ namespace AICompanionRoguelike.Memory
         public bool RescueUsedThisRun => rescueUsedThisRun;
         public int RequiredTrust => requiredTrust;
         public float RescueHealth => rescueHealth;
+        public float EffectiveRescueHealth => rescueHealth + GetGrowthRouteRescueHealthBonus();
 
         private void Awake()
         {
@@ -78,7 +79,8 @@ namespace AICompanionRoguelike.Memory
             }
 
             rescueUsedThisRun = true;
-            float appliedDamage = Mathf.Max(0f, target.CurrentHealth - rescueHealth);
+            float effectiveRescueHealth = EffectiveRescueHealth;
+            float appliedDamage = Mathf.Max(0f, target.CurrentHealth - effectiveRescueHealth);
             damageInfo.damage = appliedDamage;
 
             LocalRescueTriggered?.Invoke(this, target, damageInfo);
@@ -86,7 +88,7 @@ namespace AICompanionRoguelike.Memory
 
             if (logRescue)
             {
-                Debug.Log($"Bond rescue triggered. Trust={companionRelationship.Trust}, player HP will be held at {rescueHealth}.", this);
+                Debug.Log($"Bond rescue triggered. Trust={companionRelationship.Trust}, player HP will be held at {effectiveRescueHealth}.", this);
             }
 
             if (enterBranchEventRoomOnRescue && runManager != null)
@@ -115,6 +117,12 @@ namespace AICompanionRoguelike.Memory
             return !rescueUsedThisRun
                 && companionRelationship != null
                 && companionRelationship.Trust >= requiredTrust;
+        }
+
+        private float GetGrowthRouteRescueHealthBonus()
+        {
+            ResolveReferences();
+            return runManager != null ? runManager.SurvivalRouteRescueHealthBonus : 0f;
         }
 
         private static bool WouldBeFatal(HealthComponent target, float damage)

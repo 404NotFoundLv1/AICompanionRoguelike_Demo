@@ -84,6 +84,12 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(1f)] private float counterplayDodgeDamageMultiplier = 1.25f;
         [SerializeField, Min(1f)] private float counterplayGuardOpeningDamageMultiplier = 1.25f;
         [SerializeField, Min(2)] private int growthRouteActivationThreshold = 2;
+        [Header("Growth Route Effects")]
+        [SerializeField, Min(0f)] private float playerRouteDamageBonusPerLevel = 0.08f;
+        [SerializeField, Min(0f)] private float counterplayRouteDodgeBoostDurationPerLevel = 0.4f;
+        [SerializeField, Min(0f)] private float counterplayRouteDamageBonusPerLevel = 0.1f;
+        [SerializeField, Range(0.1f, 1f)] private float companionRouteCooldownMultiplierPerLevel = 0.9f;
+        [SerializeField, Min(0f)] private float survivalRouteRescueHealthBonusPerLevel = 5f;
         [SerializeField, Min(0)] private int eliteBonusRewardChoices = 1;
         [SerializeField, Min(1)] private int shopRewardChoiceCount = 2;
         [SerializeField, Min(0f)] private float safeRoomHealAmount = 25f;
@@ -149,10 +155,29 @@ namespace AICompanionRoguelike.Roguelike
         public bool HasActiveGrowthRoute => hasActiveGrowthRoute;
         public RunRewardCategory ActiveGrowthRouteCategory => activeGrowthRouteCategory;
         public int ActiveGrowthRouteLevel => activeGrowthRouteLevel;
+        public float PlayerRouteDamageMultiplier => GetRouteMultiplier(RunRewardCategory.Player, playerRouteDamageBonusPerLevel);
+        public float CounterplayRouteDodgeBoostDurationBonus => IsActiveGrowthRoute(RunRewardCategory.Counterplay)
+            ? counterplayRouteDodgeBoostDurationPerLevel * Mathf.Max(0, activeGrowthRouteLevel - 1)
+            : 0f;
+        public float CounterplayRouteDamageMultiplier => GetRouteMultiplier(RunRewardCategory.Counterplay, counterplayRouteDamageBonusPerLevel);
+        public float CompanionRouteCooldownMultiplier => IsActiveGrowthRoute(RunRewardCategory.Companion)
+            ? Mathf.Pow(companionRouteCooldownMultiplierPerLevel, Mathf.Max(0, activeGrowthRouteLevel - 1))
+            : 1f;
+        public float SurvivalRouteRescueHealthBonus => IsActiveGrowthRoute(RunRewardCategory.Survival)
+            ? survivalRouteRescueHealthBonusPerLevel * Mathf.Max(0, activeGrowthRouteLevel - 1)
+            : 0f;
+        public int BuildRouteBonusLevel => IsActiveGrowthRoute(RunRewardCategory.Build)
+            ? Mathf.Max(0, activeGrowthRouteLevel - 1)
+            : 0;
         public string LastRoomFeedbackMessage => lastRoomFeedbackMessage;
         public string LastRoomModifierFeedbackTitle => lastRoomModifierFeedbackTitle;
         public string LastRoomModifierFeedbackLine => lastRoomModifierFeedbackLine;
         public Color LastRoomModifierFeedbackColor => lastRoomModifierFeedbackColor;
+
+        public static RunManager FindActiveRunManager()
+        {
+            return FindAnyObjectByType<RunManager>();
+        }
 
         private void Reset()
         {
@@ -1453,11 +1478,44 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        private bool IsActiveGrowthRoute(RunRewardCategory category)
+        {
+            return hasActiveGrowthRoute
+                && activeGrowthRouteCategory == category
+                && activeGrowthRouteLevel >= Mathf.Max(2, growthRouteActivationThreshold);
+        }
+
+        private float GetRouteMultiplier(RunRewardCategory category, float bonusPerLevel)
+        {
+            return IsActiveGrowthRoute(category)
+                ? 1f + Mathf.Max(0f, bonusPerLevel) * Mathf.Max(0, activeGrowthRouteLevel - 1)
+                : 1f;
+        }
+
         private string BuildCurrentGrowthRouteLabel()
         {
             return hasActiveGrowthRoute
-                ? $"Growth Route: {RunRewardChoice.GetCategoryLabel(activeGrowthRouteCategory)} Lv{activeGrowthRouteLevel}"
+                ? $"Growth Route: {RunRewardChoice.GetCategoryLabel(activeGrowthRouteCategory)} Lv{activeGrowthRouteLevel} | {BuildCurrentGrowthRouteEffectLabel()}"
                 : "Growth Route: forming";
+        }
+
+        private string BuildCurrentGrowthRouteEffectLabel()
+        {
+            switch (activeGrowthRouteCategory)
+            {
+                case RunRewardCategory.Player:
+                    return $"Damage x{PlayerRouteDamageMultiplier:0.##}";
+                case RunRewardCategory.Companion:
+                    return $"AI Cooldown x{CompanionRouteCooldownMultiplier:0.##}";
+                case RunRewardCategory.Counterplay:
+                    return $"Dodge +{CounterplayRouteDodgeBoostDurationBonus:0.0}s / Counter x{CounterplayRouteDamageMultiplier:0.##}";
+                case RunRewardCategory.Survival:
+                    return $"Rescue HP +{SurvivalRouteRescueHealthBonus:0}";
+                case RunRewardCategory.Build:
+                    return $"Build Bonus +{BuildRouteBonusLevel}";
+                default:
+                    return "Effect ready";
+            }
         }
 
         private void RecordRouteEntry(RoomType roomType, int roomNumber, RoomModifierType roomModifier)

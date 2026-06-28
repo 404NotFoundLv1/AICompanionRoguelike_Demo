@@ -1,5 +1,6 @@
 using AICompanionRoguelike.Character;
 using AICompanionRoguelike.Enemy;
+using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Combat
@@ -58,8 +59,11 @@ namespace AICompanionRoguelike.Combat
         public float DodgeDamageBoostDuration => dodgeDamageBoostDuration;
         public float DodgeDamageMultiplier => dodgeDamageMultiplier;
         public float GuardOpeningDamageMultiplier => guardOpeningDamageMultiplier;
+        public float EffectiveDodgeDamageBoostDuration => dodgeDamageBoostDuration + GetCounterplayRouteDodgeBoostDurationBonus();
+        public float EffectiveDodgeDamageMultiplier => dodgeDamageMultiplier * GetCounterplayRouteDamageMultiplier();
+        public float EffectiveGuardOpeningDamageMultiplier => guardOpeningDamageMultiplier * GetCounterplayRouteDamageMultiplier();
         public float DodgeDamageBoostRemaining => dodgeDamageBoostTimer;
-        public bool IsDodgeDamageBoostActive => dodgeDamageBoostTimer > 0f && dodgeDamageMultiplier > 1f;
+        public bool IsDodgeDamageBoostActive => dodgeDamageBoostTimer > 0f && EffectiveDodgeDamageMultiplier > 1f;
 
         private void Reset()
         {
@@ -187,12 +191,12 @@ namespace AICompanionRoguelike.Combat
             float outgoingMultiplier = 1f;
             if (IsDodgeDamageBoostActive)
             {
-                outgoingMultiplier *= dodgeDamageMultiplier;
+                outgoingMultiplier *= EffectiveDodgeDamageMultiplier;
             }
 
             if (IsGuardOpeningTarget(targetHealth))
             {
-                outgoingMultiplier *= guardOpeningDamageMultiplier;
+                outgoingMultiplier *= EffectiveGuardOpeningDamageMultiplier;
             }
 
             if (outgoingMultiplier > 1f)
@@ -228,9 +232,9 @@ namespace AICompanionRoguelike.Combat
             ResolveReferences();
             string dashLabel = movement != null ? $"{movement.DashCooldown:0.00}s" : "--";
             string boostLabel = IsDodgeDamageBoostActive
-                ? $"x{dodgeDamageMultiplier:0.##} ({dodgeDamageBoostTimer:0.0}s)"
-                : $"x{dodgeDamageMultiplier:0.##}";
-            return $"Counterplay: Dash CD {dashLabel} | Recovery {postHitInvulnerabilityDuration:0.00}s | Dodge {boostLabel} | Opening x{guardOpeningDamageMultiplier:0.##}";
+                ? $"x{EffectiveDodgeDamageMultiplier:0.##} ({dodgeDamageBoostTimer:0.0}s)"
+                : $"x{EffectiveDodgeDamageMultiplier:0.##}";
+            return $"Counterplay: Dash CD {dashLabel} | Recovery {postHitInvulnerabilityDuration:0.00}s | Dodge {boostLabel} | Opening x{EffectiveGuardOpeningDamageMultiplier:0.##}";
         }
 
         private void ResolveReferences()
@@ -335,12 +339,25 @@ namespace AICompanionRoguelike.Combat
 
         private void ActivateDodgeDamageBoost()
         {
-            if (dodgeDamageBoostDuration <= 0f || dodgeDamageMultiplier <= 1f)
+            float effectiveDuration = EffectiveDodgeDamageBoostDuration;
+            if (effectiveDuration <= 0f || EffectiveDodgeDamageMultiplier <= 1f)
             {
                 return;
             }
 
-            dodgeDamageBoostTimer = Mathf.Max(dodgeDamageBoostTimer, dodgeDamageBoostDuration);
+            dodgeDamageBoostTimer = Mathf.Max(dodgeDamageBoostTimer, effectiveDuration);
+        }
+
+        private static float GetCounterplayRouteDodgeBoostDurationBonus()
+        {
+            RunManager runManager = RunManager.FindActiveRunManager();
+            return runManager != null ? runManager.CounterplayRouteDodgeBoostDurationBonus : 0f;
+        }
+
+        private static float GetCounterplayRouteDamageMultiplier()
+        {
+            RunManager runManager = RunManager.FindActiveRunManager();
+            return runManager != null ? runManager.CounterplayRouteDamageMultiplier : 1f;
         }
 
         private static bool IsGuardOpeningTarget(HealthComponent targetHealth)
