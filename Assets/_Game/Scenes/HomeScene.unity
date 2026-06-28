@@ -1215,6 +1215,9 @@ MonoBehaviour:
   interactKey: 19
   cancelKey: 60
   alternateCancelKey: 31
+  guardianTacticKey: 41
+  suppressorTacticKey: 42
+  linkTacticKey: 43
   requireConfirmInput: 1
   showInteractionPrompt: 1
   promptText: Press E to prepare expedition
@@ -1222,8 +1225,10 @@ MonoBehaviour:
     serializedVersion: 2
     x: 0
     y: 72
-    width: 600
-    height: 260
+    width: 620
+    height: 360
+  resetTacticOnPreparationOpen: 1
+  defaultPreparationTendency: 1
   readyColor: {r: 0.25, g: 1, b: 0.75, a: 1}
   logTransition: 1
 --- !u!61 &1573618385

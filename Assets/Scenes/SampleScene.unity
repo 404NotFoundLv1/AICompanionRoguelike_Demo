@@ -394,6 +394,7 @@ MonoBehaviour:
   nextRoomKey: 28
   allowDebugNextRoomKey: 0
   useRoomChoicePortal: 1
+  useRoomModifiers: 1
   roomChoiceCount: 3
   selectableRoomTypes: 00000000010000000200000003000000
   roomSequence: 0000000001000000000000000200000003000000
@@ -409,6 +410,13 @@ MonoBehaviour:
     y: 92
     width: 560
     height: 270
+  showRoomFeedbackPanel: 1
+  roomFeedbackPanelRect:
+    serializedVersion: 2
+    x: 360
+    y: 16
+    width: 560
+    height: 126
   useRoomRewards: 1
   rewardChoiceCount: 3
   selectableRewards: 0000000001000000020000000300000004000000
@@ -417,6 +425,30 @@ MonoBehaviour:
   moveSpeedRewardMultiplier: 1.1
   companionCooldownRewardMultiplier: 0.85
   bondRescueHealthReward: 10
+  counterplayDashCooldownMultiplier: 0.85
+  counterplayRecoveryDurationBonus: 0.12
+  counterplayDodgeBoostDuration: 2
+  counterplayDodgeDamageMultiplier: 1.25
+  counterplayGuardOpeningDamageMultiplier: 1.25
+  growthRouteActivationThreshold: 2
+  playerRouteDamageBonusPerLevel: 0.08
+  counterplayRouteDodgeBoostDurationPerLevel: 0.4
+  counterplayRouteDamageBonusPerLevel: 0.1
+  companionRouteCooldownMultiplierPerLevel: 0.9
+  survivalRouteRescueHealthBonusPerLevel: 5
+  routeSpecializationPlayerDamageBonus: 0.12
+  routeSpecializationCounterplayDodgeBoostDurationBonus: 0.6
+  routeSpecializationCounterplayDamageBonus: 0.12
+  routeSpecializationCompanionCooldownMultiplier: 0.85
+  routeSpecializationSurvivalRescueHealthBonus: 8
+  routeSpecializationBuildBonusLevel: 1
+  eliteBonusRewardChoices: 1
+  shopRewardChoiceCount: 2
+  safeRoomHealAmount: 25
+  metaPlayerMaxHealthBonusPerLevel: 10
+  metaPlayerDamageBonusPerLevel: 0.08
+  metaCompanionCooldownMultiplierPerLevel: 0.95
+  metaProgressionFeedbackDuration: 4
   logRunMessages: 1
 --- !u!114 &736547106
 MonoBehaviour:
@@ -435,6 +467,10 @@ MonoBehaviour:
   enemyContainer: {fileID: 864806903}
   battleEnemyCount: 2
   eliteEnemyCount: 2
+  eliteHealthMultiplier: 1.5
+  eliteDamageMultiplier: 1.25
+  eliteScaleMultiplier: 1.18
+  eliteTint: {r: 1, g: 0.72, b: 0.22, a: 1}
   spawnPositions:
   - {x: 3.2, y: -1.15}
   - {x: 5.2, y: -1.15}
@@ -1030,9 +1066,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.StatusFeedbackUI
   playerHealth: {fileID: 1337357274}
   branchChoiceBuff: {fileID: 1337357278}
+  playerCounterplayFeedback: {fileID: 0}
   companionRelationship: {fileID: 313638958}
   tacticalSupport: {fileID: 0}
   branchEventRoomController: {fileID: 736547108}
+  runManager: {fileID: 0}
   panelRect:
     serializedVersion: 2
     x: 16
@@ -1131,7 +1169,7 @@ MonoBehaviour:
     height: 260
   showPanel: 1
   selectionDialogue: {fileID: 0}
-  resetBuildOnEnable: 1
+  resetBuildOnEnable: 0
   logSelection: 1
   selectionFeedbackPriority: 6
 --- !u!1 &1337357267
@@ -1507,8 +1545,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerCounterplayFeedback
   health: {fileID: 1337357274}
   movement: {fileID: 1337357268}
-  combat: {fileID: 1337357275}
   postHitInvulnerabilityDuration: 0.45
+  dodgeDamageBoostDuration: 0
+  dodgeDamageMultiplier: 1
+  guardOpeningDamageMultiplier: 1
   feedbackDuration: 1.15
   showCounterplayVisual: 1
   visualRenderer: {fileID: 0}

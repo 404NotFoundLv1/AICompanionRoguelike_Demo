@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AICompanionRoguelike.Character;
 using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
@@ -16,10 +17,15 @@ namespace AICompanionRoguelike.Home
         [SerializeField] private Key interactKey = Key.E;
         [SerializeField] private Key cancelKey = Key.Escape;
         [SerializeField] private Key alternateCancelKey = Key.Q;
+        [SerializeField] private Key guardianTacticKey = Key.Digit1;
+        [SerializeField] private Key suppressorTacticKey = Key.Digit2;
+        [SerializeField] private Key linkTacticKey = Key.Digit3;
         [SerializeField] private bool requireConfirmInput = true;
         [SerializeField] private bool showInteractionPrompt = true;
         [SerializeField] private string promptText = "Press E to prepare expedition";
-        [SerializeField] private Rect preparationPanelRect = new Rect(0f, 72f, 560f, 250f);
+        [SerializeField] private Rect preparationPanelRect = new Rect(0f, 72f, 620f, 360f);
+        [SerializeField] private bool resetTacticOnPreparationOpen = true;
+        [SerializeField] private CompanionSkillTendency defaultPreparationTendency = CompanionSkillTendency.Guardian;
         [SerializeField] private Color readyColor = new Color(0.25f, 1f, 0.75f, 1f);
         [SerializeField] private bool logTransition = true;
 
@@ -58,23 +64,30 @@ namespace AICompanionRoguelike.Home
                 return;
             }
 
-            if (isPreparationOpen
-                && (WasKeyPressed(keyboard, cancelKey) || WasKeyPressed(keyboard, alternateCancelKey)))
+            if (isPreparationOpen)
             {
-                CancelPreparation();
+                if (WasKeyPressed(keyboard, cancelKey) || WasKeyPressed(keyboard, alternateCancelKey))
+                {
+                    CancelPreparation();
+                    return;
+                }
+
+                if (TrySelectPreparationTacticFromInput(keyboard))
+                {
+                    return;
+                }
+
+                if (WasKeyPressed(keyboard, interactKey))
+                {
+                    ConfirmPreparation();
+                }
+
                 return;
             }
 
             if (WasKeyPressed(keyboard, interactKey))
             {
-                if (isPreparationOpen)
-                {
-                    ConfirmPreparation();
-                }
-                else
-                {
-                    OpenPreparationPanel();
-                }
+                OpenPreparationPanel();
             }
         }
 
@@ -118,6 +131,11 @@ namespace AICompanionRoguelike.Home
                 return;
             }
 
+            if (!isPreparationOpen)
+            {
+                StartFreshPreparationTactic();
+            }
+
             isPreparationOpen = true;
         }
 
@@ -133,7 +151,18 @@ namespace AICompanionRoguelike.Home
                 return;
             }
 
+            if (!CompanionRunBuildState.HasSelectedTendency)
+            {
+                SelectPreparationTendency(defaultPreparationTendency);
+            }
+
             EnterBattle();
+        }
+
+        public void SelectPreparationTendency(CompanionSkillTendency tendency)
+        {
+            CompanionSkillTendency selectedTendency = CompanionSkillTendencyRules.NormalizeSelectable(tendency);
+            CompanionRunBuildState.SetTendency(selectedTendency);
         }
 
         public void EnterBattle()
@@ -211,12 +240,29 @@ namespace AICompanionRoguelike.Home
 
         public static string[] BuildPreparationLines()
         {
-            return new[]
+            List<string> lines = new List<string>
             {
                 "Expedition Preparation",
                 BuildPermanentUpgradeLine(),
-                BuildCompanionReadinessLine(),
-                "Confirm to enter the next combat run."
+                BuildCompanionReadinessLine()
+            };
+            lines.AddRange(BuildTacticalChoiceLines());
+            lines.Add("Confirm to enter the next combat run.");
+            return lines.ToArray();
+        }
+
+        public static string[] BuildTacticalChoiceLines()
+        {
+            CompanionSkillTendency currentTendency = CompanionSkillTendencyRules.NormalizeSelectable(
+                CompanionRunBuildState.CurrentTendency);
+
+            return new[]
+            {
+                "AI Tactic Choices",
+                $"Current AI Tactic: {GetTacticName(currentTendency)} - {GetTacticSummary(currentTendency)}",
+                "[1] Guardian - guard earlier and reduce incoming damage",
+                "[2] Suppressor - weaken dangerous enemies more often",
+                "[3] Link - call QTE link windows faster"
             };
         }
 
@@ -243,11 +289,66 @@ namespace AICompanionRoguelike.Home
             return $"AI Readiness: {profile.Tier} | Trust {CompanionRelationshipState.Trust} | Affection {CompanionRelationshipState.Affection}{memoryPart} | {CompanionSkillTendencyRules.GetHudSummaryLine(CompanionRunBuildState.CurrentTendency)}";
         }
 
+        private void StartFreshPreparationTactic()
+        {
+            if (resetTacticOnPreparationOpen)
+            {
+                CompanionRunBuildState.Reset();
+            }
+
+            SelectPreparationTendency(defaultPreparationTendency);
+        }
+
+        private bool TrySelectPreparationTacticFromInput(Keyboard keyboard)
+        {
+            if (WasKeyPressed(keyboard, guardianTacticKey))
+            {
+                SelectPreparationTendency(CompanionSkillTendency.Guardian);
+                return true;
+            }
+
+            if (WasKeyPressed(keyboard, suppressorTacticKey))
+            {
+                SelectPreparationTendency(CompanionSkillTendency.Suppressor);
+                return true;
+            }
+
+            if (WasKeyPressed(keyboard, linkTacticKey))
+            {
+                SelectPreparationTendency(CompanionSkillTendency.Link);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string GetTacticName(CompanionSkillTendency tendency)
+        {
+            return tendency switch
+            {
+                CompanionSkillTendency.Guardian => "Guardian",
+                CompanionSkillTendency.Suppressor => "Suppressor",
+                CompanionSkillTendency.Link => "Link",
+                _ => "Guardian"
+            };
+        }
+
+        private static string GetTacticSummary(CompanionSkillTendency tendency)
+        {
+            return tendency switch
+            {
+                CompanionSkillTendency.Guardian => "safer protection",
+                CompanionSkillTendency.Suppressor => "stronger enemy control",
+                CompanionSkillTendency.Link => "faster QTE support",
+                _ => "safer protection"
+            };
+        }
+
         private static Rect GetCenteredPreparationRect(Rect sourceRect)
         {
             float width = Mathf.Max(220f, sourceRect.width);
             float x = sourceRect.x <= 0f ? (Screen.width - width) * 0.5f : sourceRect.x;
-            return new Rect(x, sourceRect.y, width, Mathf.Max(160f, sourceRect.height));
+            return new Rect(x, sourceRect.y, width, Mathf.Max(240f, sourceRect.height));
         }
 
         private static bool WasKeyPressed(Keyboard keyboard, Key key)
