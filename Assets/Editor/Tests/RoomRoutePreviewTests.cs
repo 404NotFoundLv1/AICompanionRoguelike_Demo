@@ -179,8 +179,9 @@ namespace AICompanionRoguelike.Tests
                 string shopFeedback = ReadProperty(runManager, "LastRoomFeedbackMessage") as string;
 
                 Assert.That(shopFeedback, Does.Contain("Supply Room"));
-                Assert.That(shopFeedback, Does.Contain("reward"));
-                Assert.True(runManager.IsWaitingForReward, "Supply room should immediately open a small reward draft.");
+                Assert.That(shopFeedback, Does.Contain("interact"));
+                Assert.False(runManager.IsWaitingForReward, "Supply room should wait for shop interaction before opening purchases.");
+                Assert.True(runManager.IsWaitingForNextRoom, "Supply room should allow skipping directly to route selection.");
             }
             finally
             {

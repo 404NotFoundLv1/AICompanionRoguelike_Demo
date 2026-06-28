@@ -101,6 +101,9 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(1)] private int shopRewardChoiceCount = 2;
         [SerializeField, Min(0f)] private float safeRoomHealAmount = 25f;
 
+        [Header("Supply Rooms")]
+        [SerializeField, Min(0)] private int startingSupplies;
+
         [Header("Meta Progression")]
         [SerializeField, Min(0f)] private float metaPlayerMaxHealthBonusPerLevel = 10f;
         [SerializeField, Min(0f)] private float metaPlayerDamageBonusPerLevel = 0.08f;
@@ -128,6 +131,11 @@ namespace AICompanionRoguelike.Roguelike
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(8);
+        private int currentSupplies;
+        private string lastShopFeedbackMessage = string.Empty;
+        private RoomType currentRewardSourceRoomType = RoomType.BattleRoom;
+        private bool shopRewardDraftOpen;
+        private bool shopRewardPurchasedThisRoom;
         private int playerGrowthCount;
         private int companionGrowthCount;
         private int counterplayGrowthCount;
@@ -171,6 +179,13 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
+        public int CurrentSupplies => currentSupplies;
+        public int CurrentShopRewardCost => RunSupplyRules.ShopRewardCost();
+        public bool IsCurrentRewardShopPurchase => waitingForReward && currentRewardSourceRoomType == RoomType.ShopRoom;
+        public bool CanOpenShopRewardDraft => CanOpenCurrentShopRewardDraft();
+        public bool HasPurchasedCurrentShopReward => shopRewardPurchasedThisRoom;
+        public string CurrentShopAffordabilityLabel => RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies);
+        public string LastShopFeedbackMessage => lastShopFeedbackMessage;
         public string CurrentGrowthSummaryLabel => BuildCurrentGrowthSummaryLabel();
         public string CurrentGrowthRouteLabel => BuildCurrentGrowthRouteLabel();
         public bool HasActiveGrowthRoute => hasActiveGrowthRoute;
@@ -315,6 +330,11 @@ namespace AICompanionRoguelike.Roguelike
             ClearRoomModifierFeedback();
             currentRoomModifier = RoomModifierType.None;
             pendingSelectedRoomModifier = RoomModifierType.None;
+            currentSupplies = Mathf.Max(0, startingSupplies);
+            lastShopFeedbackMessage = string.Empty;
+            currentRewardSourceRoomType = RoomType.BattleRoom;
+            shopRewardDraftOpen = false;
+            shopRewardPurchasedThisRoom = false;
             currentRouteHistory.Clear();
             currentRouteModifierHistory.Clear();
             ResetRewardGrowthCounts();
@@ -394,6 +414,13 @@ namespace AICompanionRoguelike.Roguelike
                 : RoomModifierType.None;
             pendingSelectedRoomModifier = RoomModifierType.None;
             currentRoomModifier = nextRoomModifier;
+            shopRewardDraftOpen = false;
+            shopRewardPurchasedThisRoom = false;
+            if (nextRoomType != RoomType.ShopRoom)
+            {
+                lastShopFeedbackMessage = string.Empty;
+            }
+
             roomIndex++;
             waitingForNextRoom = false;
             waitingForReward = false;
@@ -406,6 +433,10 @@ namespace AICompanionRoguelike.Roguelike
             ApplyRoomModifierEntryEffect(currentRoomModifier);
             SetRoomModifierFeedback(currentRoomModifier, restoredHealth);
             SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth, currentRoomModifier));
+            if (currentRoomModifier == RoomModifierType.None)
+            {
+                ShowCompanionSupportRoomFeedback(nextRoomType, restoredHealth);
+            }
             RecordRouteEntry(nextRoomType, roomNumber, currentRoomModifier);
             roomManager.EnterRoom(nextRoomType, roomNumber, currentRoomModifier);
             RoomAdvanced?.Invoke(this, nextRoomType, roomNumber);
@@ -463,6 +494,7 @@ namespace AICompanionRoguelike.Roguelike
         {
             waitingForNextRoom = false;
             RunSessionState.RecordRoomCleared(roomType, roomNumber);
+            GrantRoomClearSupplies(roomType);
 
             string roomClearedFeedback = BuildRoomClearedFeedbackMessage(roomType, roomNumber);
             if (ShouldShowCombatClearFeedback(roomType))
@@ -490,6 +522,18 @@ namespace AICompanionRoguelike.Roguelike
             BeginNextRoomChoiceFlow();
         }
 
+        private void GrantRoomClearSupplies(RoomType roomType)
+        {
+            int supplyGain = RunSupplyRules.GetSupplyGain(roomType);
+            if (supplyGain <= 0)
+            {
+                return;
+            }
+
+            currentSupplies += supplyGain;
+            lastShopFeedbackMessage = string.Empty;
+        }
+
         public void SelectReward(int index)
         {
             if (!waitingForReward || index < 0 || index >= currentRewardChoices.Count)
@@ -498,8 +542,21 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             RunRewardChoice reward = currentRewardChoices[index];
+            RoomType rewardSourceRoomType = currentRewardSourceRoomType;
+            bool isShopReward = rewardSourceRoomType == RoomType.ShopRoom;
+            if (isShopReward && !TrySpendShopReward())
+            {
+                return;
+            }
+
             ApplyReward(reward.RewardType);
             RunSessionState.RecordRewardSelected(reward.Title);
+            if (isShopReward)
+            {
+                shopRewardDraftOpen = false;
+                shopRewardPurchasedThisRoom = true;
+            }
+
             waitingForReward = false;
             ClearRewardChoices();
 
@@ -510,6 +567,70 @@ namespace AICompanionRoguelike.Roguelike
 
             RewardSelected?.Invoke(this, reward);
             BeginNextRoomChoiceFlow();
+        }
+
+        public bool OpenShopRewardDraft()
+        {
+            if (!CanOpenCurrentShopRewardDraft())
+            {
+                if (CurrentRoomType == RoomType.ShopRoom && shopRewardPurchasedThisRoom)
+                {
+                    lastShopFeedbackMessage = "Shop already used. Continue to the next route.";
+                    SetRoomFeedback(lastShopFeedbackMessage);
+                }
+
+                return false;
+            }
+
+            shopRewardDraftOpen = true;
+            waitingForNextRoom = false;
+            ClearPreparedRoomChoices();
+            PrepareRewardChoices(RoomType.ShopRoom);
+            SetRoomFeedback($"Supply Shop: choose one purchase or press Esc to skip. {RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies)}.");
+            ShowCompanionShopFeedback($"AI: Shop is open. {RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies).ToLowerInvariant()}.");
+            return true;
+        }
+
+        public void CloseShopRewardDraft()
+        {
+            if (!IsCurrentRewardShopPurchase && !shopRewardDraftOpen)
+            {
+                return;
+            }
+
+            shopRewardDraftOpen = false;
+            waitingForReward = false;
+            ClearRewardChoices();
+            lastShopFeedbackMessage = $"Skipped shop purchase. Supplies {currentSupplies}.";
+            SetRoomFeedback($"Supply Shop: {lastShopFeedbackMessage} Choose the next route when ready.");
+            ShowCompanionShopFeedback("AI: Skipping the shop is fine. We can use those supplies later.");
+            BeginNextRoomChoiceFlow();
+        }
+
+        private bool CanOpenCurrentShopRewardDraft()
+        {
+            return !runCompleted
+                && useRoomRewards
+                && CurrentRoomType == RoomType.ShopRoom
+                && !waitingForReward
+                && !shopRewardPurchasedThisRoom;
+        }
+
+        private bool TrySpendShopReward()
+        {
+            if (RunSupplyRules.CanAffordShopReward(currentSupplies))
+            {
+                currentSupplies = RunSupplyRules.SpendShopReward(currentSupplies);
+                lastShopFeedbackMessage = RunSupplyRules.BuildShopSpentLabel(currentSupplies);
+                SetRoomFeedback($"Supply Purchase: {lastShopFeedbackMessage}");
+                ShowCompanionShopFeedback($"AI: Bought the upgrade. supplies remaining {currentSupplies}.");
+                return true;
+            }
+
+            lastShopFeedbackMessage = RunSupplyRules.BuildShopBlockedLabel(currentSupplies);
+            SetRoomFeedback($"Supply Purchase Blocked: {lastShopFeedbackMessage}");
+            ShowCompanionShopFeedback("AI: Not enough supplies. We should take another combat route first.");
+            return false;
         }
 
         private void BeginNextRoomChoiceFlow()
@@ -545,7 +666,7 @@ namespace AICompanionRoguelike.Roguelike
         {
             return !runCompleted
                 && useRoomRewards
-                && (roomType == RoomType.BattleRoom || roomType == RoomType.EliteRoom || roomType == RoomType.ShopRoom);
+                && (roomType == RoomType.BattleRoom || roomType == RoomType.EliteRoom);
         }
 
         private bool ShouldCompleteRun(int roomNumber)
@@ -622,7 +743,12 @@ namespace AICompanionRoguelike.Roguelike
         private void PrepareRewardChoices(RoomType sourceRoomType)
         {
             waitingForReward = true;
+            currentRewardSourceRoomType = sourceRoomType;
             currentRewardChoices.Clear();
+            if (sourceRoomType == RoomType.ShopRoom)
+            {
+                lastShopFeedbackMessage = RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies);
+            }
 
             List<RunRewardType> candidates = BuildRewardCandidateList();
             int targetCount = GetRewardChoiceTargetCount(sourceRoomType, candidates.Count);
@@ -712,6 +838,7 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             currentRewardChoices.Clear();
+            currentRewardSourceRoomType = RoomType.BattleRoom;
             RewardChoicesCleared?.Invoke(this);
         }
 
@@ -1251,10 +1378,12 @@ namespace AICompanionRoguelike.Roguelike
                             $"Combat Started - Elite Room: Enemy Types Guard/Ranged. Blocked frontal hits deal less damage; punish the Guard opening after it attacks for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options."),
                         modifierLine);
                 case RoomType.SafeRoom:
-                    return AppendModifierFeedback($"Safe Room: restored {restoredHealth:0} HP. No enemies here.", modifierLine);
+                    return AppendModifierFeedback(
+                        $"Safe Room: restored {restoredHealth:0} HP. No enemies here. Supplies {currentSupplies}.",
+                        modifierLine);
                 case RoomType.ShopRoom:
                     return AppendModifierFeedback(
-                        $"Supply Room: no enemies. Choose from {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        $"Supply Room: no enemies. Move to the shop and interact to buy 1 reward, or skip shopping through the next-route portal. {RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies)}.",
                         modifierLine);
                 case RoomType.BossRoom:
                     return AppendTacticFeedback("Boss Room: final challenge. Defeat the boss to complete the run.");
@@ -1289,25 +1418,48 @@ namespace AICompanionRoguelike.Roguelike
 
         private string BuildRoomClearedFeedbackMessage(RoomType roomType, int roomNumber)
         {
+            string supplyLine = BuildRoomClearSupplyFeedback(roomType);
             if (ShouldCompleteRun(roomNumber))
             {
-                return $"Room Clear - room #{roomNumber} cleared. Run complete.";
+                return AppendSupplyFeedback($"Room Clear - room #{roomNumber} cleared. Run complete.", supplyLine);
             }
 
             if (IsNextRoomBossRoom())
             {
-                return $"Room Clear - room #{roomNumber} cleared. Find the final portal to challenge the boss.";
+                return AppendSupplyFeedback(
+                    $"Room Clear - room #{roomNumber} cleared. Find the final portal to challenge the boss.",
+                    supplyLine);
             }
 
             if (ShouldOfferReward(roomType))
             {
-                return AppendTacticClearFeedback(
-                    $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.");
+                return AppendTacticClearFeedback(AppendSupplyFeedback(
+                    $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.",
+                    supplyLine));
             }
 
             return useRoomChoicePortal
-                ? AppendTacticClearFeedback($"Room Clear - room #{roomNumber} cleared. Find the next-room portal to choose a route.")
-                : AppendTacticClearFeedback($"Room Clear - room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.");
+                ? AppendTacticClearFeedback(AppendSupplyFeedback(
+                    $"Room Clear - room #{roomNumber} cleared. Find the next-room portal to choose a route.",
+                    supplyLine))
+                : AppendTacticClearFeedback(AppendSupplyFeedback(
+                    $"Room Clear - room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.",
+                    supplyLine));
+        }
+
+        private string BuildRoomClearSupplyFeedback(RoomType roomType)
+        {
+            string supplyGainLabel = RunSupplyRules.BuildSupplyGainLabel(roomType);
+            return string.IsNullOrWhiteSpace(supplyGainLabel)
+                ? string.Empty
+                : $"{supplyGainLabel}. Supplies {currentSupplies}.";
+        }
+
+        private static string AppendSupplyFeedback(string baseMessage, string supplyLine)
+        {
+            return string.IsNullOrWhiteSpace(supplyLine)
+                ? baseMessage
+                : $"{baseMessage} {supplyLine}";
         }
 
         private static string AppendTacticClearFeedback(string baseMessage)
@@ -1353,6 +1505,46 @@ namespace AICompanionRoguelike.Roguelike
         private static void ShowCompanionModifierFeedback(RoomModifierType roomModifier)
         {
             string message = RoomModifierRules.BuildCompanionFeedbackLine(roomModifier);
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            CompanionSpeechBubbleUI speechBubble = UnityEngine.Object.FindAnyObjectByType<CompanionSpeechBubbleUI>();
+            if (speechBubble != null)
+            {
+                speechBubble.ShowMessage(message, 4f, 3);
+            }
+        }
+
+        private void ShowCompanionSupportRoomFeedback(RoomType roomType, float restoredHealth)
+        {
+            string message = BuildCompanionSupportRoomLine(roomType, restoredHealth);
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            ShowCompanionShopFeedback(message);
+        }
+
+        private string BuildCompanionSupportRoomLine(RoomType roomType, float restoredHealth)
+        {
+            switch (roomType)
+            {
+                case RoomType.SafeRoom:
+                    return restoredHealth > 0f
+                        ? $"AI: Good place to recover. HP restored {restoredHealth:0}; supplies stay at {currentSupplies}."
+                        : $"AI: We can recover our rhythm here. supplies stay at {currentSupplies}.";
+                case RoomType.ShopRoom:
+                    return $"AI: Check supplies before buying. {RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies).ToLowerInvariant()}.";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static void ShowCompanionShopFeedback(string message)
+        {
             if (string.IsNullOrWhiteSpace(message))
             {
                 return;
@@ -2092,15 +2284,15 @@ namespace AICompanionRoguelike.Roguelike
                         "Safe Room",
                         "Threat: safe, no enemies.",
                         $"Reward: restore {safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(modifier):0} HP.",
-                        "Route: recover, then pick the next path.",
+                        $"Route: recover, then pick the next path. Supplies {currentSupplies} are saved for shops.",
                         modifierPreview);
                 case RoomType.ShopRoom:
                     return CreateModifiedRoomChoicePreview(
                         roomType,
                         "Supply Room",
                         "Threat: safe, no enemies.",
-                        BuildRewardPreview(roomType, modifier),
-                        "Route: take a smaller reward draft without combat.",
+                        BuildShopRewardPreview(roomType, modifier),
+                        "Route: spend supplies for a smaller reward draft without combat.",
                         modifierPreview);
                 case RoomType.BossRoom:
                     return new RoomChoicePreview(
@@ -2153,6 +2345,13 @@ namespace AICompanionRoguelike.Roguelike
                 : string.Empty;
 
             return $"Reward: choose 1 of {count} options.{buildHint}";
+        }
+
+        private string BuildShopRewardPreview(RoomType roomType, RoomModifierType modifier)
+        {
+            int candidateCount = BuildRewardCandidateList().Count;
+            int count = GetRewardChoiceTargetCount(roomType, modifier, candidateCount);
+            return $"Reward: buy 1 of {count} options. {RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies)}.";
         }
 
         private List<RoomType> BuildSelectableCandidateList()

@@ -37,6 +37,12 @@ namespace AICompanionRoguelike.UI
                 return;
             }
 
+            if (runManager.IsCurrentRewardShopPurchase && keyboard.escapeKey.wasPressedThisFrame)
+            {
+                runManager.CloseShopRewardDraft();
+                return;
+            }
+
             IReadOnlyList<RunRewardChoice> rewards = runManager.CurrentRewardChoices;
             for (int i = 0; i < rewards.Count && i < 9; i++)
             {
@@ -71,12 +77,24 @@ namespace AICompanionRoguelike.UI
 
             GUILayout.BeginArea(panelRect, GUI.skin.box);
             GUILayout.Label("选择奖励");
+            if (runManager.IsCurrentRewardShopPurchase)
+            {
+                GUILayout.Label(runManager.CurrentShopAffordabilityLabel);
+                if (!string.IsNullOrWhiteSpace(runManager.LastShopFeedbackMessage))
+                {
+                    GUILayout.Label(runManager.LastShopFeedbackMessage);
+                }
+            }
+
             GUILayout.Space(8f);
 
             for (int i = 0; i < rewards.Count; i++)
             {
                 RunRewardChoice reward = rewards[i];
-                if (GUILayout.Button($"[{i + 1}] [{reward.CategoryLabel}] {reward.Title}"))
+                string costSuffix = runManager.IsCurrentRewardShopPurchase
+                    ? $" (Cost {runManager.CurrentShopRewardCost})"
+                    : string.Empty;
+                if (GUILayout.Button($"[{i + 1}] [{reward.CategoryLabel}] {reward.Title}{costSuffix}"))
                 {
                     runManager.SelectReward(i);
                 }
@@ -88,6 +106,15 @@ namespace AICompanionRoguelike.UI
 
                 GUILayout.Label(reward.Description);
                 GUILayout.Space(6f);
+            }
+
+            if (runManager.IsCurrentRewardShopPurchase)
+            {
+                GUILayout.Space(4f);
+                if (GUILayout.Button("[Esc] Close / Skip purchase"))
+                {
+                    runManager.CloseShopRewardDraft();
+                }
             }
 
             GUILayout.EndArea();
