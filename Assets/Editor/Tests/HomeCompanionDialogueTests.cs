@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using AICompanionRoguelike.Character;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.Roguelike;
 using NUnit.Framework;
@@ -124,6 +125,82 @@ namespace AICompanionRoguelike.Tests
                 Assert.That(text, Does.Contain("Trust 65"));
                 Assert.That(text, Does.Contain("Affection 62"));
                 Assert.That(text, Does.Contain("Protected 1"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        public void RunSummaryStoresCompanionTacticUsedByLastRun()
+        {
+            CompanionRunBuildState.SetTendency(CompanionSkillTendency.Link);
+
+            RunSessionState.StartRunFromHome("Assets/Scenes/SampleScene.unity");
+            RunSessionState.RecordRoomEntered(RoomType.BattleRoom, 1);
+            RunSessionState.RecordRoomCleared(RoomType.BattleRoom, 1);
+            RunSessionState.EndRun(RunEndReason.ManualReturnHome, finalTrust: 52, finalAffection: 53);
+
+            object tactic = ReadProperty<object>(RunSessionState.LastSummary, "CompanionTactic");
+
+            Assert.AreEqual(CompanionSkillTendency.Link, tactic);
+        }
+
+        [Test]
+        public void DialogueTextShowsLastRunReviewAndCompanionTactic()
+        {
+            GameObject owner = new GameObject("HomeCompanionDialogueUnderTest");
+
+            try
+            {
+                CompanionRunBuildState.SetTendency(CompanionSkillTendency.Suppressor);
+                RunSessionState.StartRunFromHome("Assets/Scenes/SampleScene.unity");
+                RunSessionState.RecordRoomEntered(RoomType.BattleRoom, 1);
+                RunSessionState.RecordRoomCleared(RoomType.BattleRoom, 1);
+                RunSessionState.RecordRoomEntered(RoomType.EliteRoom, 2);
+                RunSessionState.EndRun(RunEndReason.PlayerDeath, finalTrust: 47, finalAffection: 49);
+
+                Component dialogue = CreateDialogue(owner);
+                string text = (string)Invoke(dialogue, "BuildDialogueText");
+
+                Assert.That(text, Does.Contain("Last Run Review"));
+                Assert.That(text, Does.Contain("Player Death"));
+                Assert.That(text, Does.Contain("Rooms 1"));
+                Assert.That(text, Does.Contain("#2 EliteRoom"));
+                Assert.That(text, Does.Contain("Suppressor"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owner);
+            }
+        }
+
+        [Test]
+        public void DiscussTacticsChoiceReadsAsPostRunReviewAndWritesReliableMemory()
+        {
+            GameObject owner = new GameObject("HomeCompanionDialogueUnderTest");
+
+            try
+            {
+                CompanionRelationship relationship = owner.AddComponent<CompanionRelationship>();
+                Component dialogue = CreateDialogue(owner);
+
+                CompanionRunBuildState.SetTendency(CompanionSkillTendency.Guardian);
+                RunSessionState.StartRunFromHome("Assets/Scenes/SampleScene.unity");
+                RunSessionState.RecordRoomEntered(RoomType.BattleRoom, 1);
+                RunSessionState.RecordRoomCleared(RoomType.BattleRoom, 1);
+                RunSessionState.EndRun(RunEndReason.BranchLeave, finalTrust: 50, finalAffection: 50);
+
+                object discussTactics = CreateDialogueChoice("DiscussTactics");
+                object outcome = Invoke(dialogue, "ApplyDialogueChoice", discussTactics);
+                string reactionLine = ReadProperty<string>(outcome, "ReactionLine");
+
+                Assert.That(reactionLine, Does.Contain("last run"));
+                Assert.That(reactionLine, Does.Contain("next sortie"));
+                Assert.AreEqual(54, relationship.Trust);
+                Assert.AreEqual(51, relationship.Affection);
+                Assert.AreEqual(1, relationship.GetMemoryTagScore(RelationshipMemoryTag.Reliable));
             }
             finally
             {

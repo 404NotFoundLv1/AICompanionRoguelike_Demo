@@ -1,4 +1,5 @@
 using System;
+using AICompanionRoguelike.Companion;
 
 namespace AICompanionRoguelike.Roguelike
 {
@@ -213,6 +214,57 @@ namespace AICompanionRoguelike.Roguelike
             int growthRouteLevel,
             int metaFragmentsEarned,
             int metaFragmentsTotal)
+            : this(
+                runId,
+                endReason,
+                roomsCleared,
+                lastRoomNumber,
+                lastRoomType,
+                rewardTitles,
+                finalTrust,
+                finalAffection,
+                companionFeedbackLine,
+                companionTrustDelta,
+                companionAffectionDelta,
+                bossSupportActivations,
+                bossWarningHits,
+                bossWarningDodges,
+                routePath,
+                routeModifiers,
+                growthRouteLabel,
+                growthRouteEffectLabel,
+                growthRouteSpecializationCount,
+                growthRouteLevel,
+                metaFragmentsEarned,
+                metaFragmentsTotal,
+                CompanionSkillTendency.Balanced)
+        {
+        }
+
+        public RunSessionSummary(
+            int runId,
+            RunEndReason endReason,
+            int roomsCleared,
+            int lastRoomNumber,
+            RoomType lastRoomType,
+            string[] rewardTitles,
+            int finalTrust,
+            int finalAffection,
+            string companionFeedbackLine,
+            int companionTrustDelta,
+            int companionAffectionDelta,
+            int bossSupportActivations,
+            int bossWarningHits,
+            int bossWarningDodges,
+            RoomType[] routePath,
+            RoomModifierType[] routeModifiers,
+            string growthRouteLabel,
+            string growthRouteEffectLabel,
+            int growthRouteSpecializationCount,
+            int growthRouteLevel,
+            int metaFragmentsEarned,
+            int metaFragmentsTotal,
+            CompanionSkillTendency companionTactic)
         {
             RunId = runId;
             EndReason = endReason;
@@ -236,6 +288,7 @@ namespace AICompanionRoguelike.Roguelike
             GrowthRouteLevel = Math.Max(0, growthRouteLevel);
             MetaFragmentsEarned = Math.Max(0, metaFragmentsEarned);
             MetaFragmentsTotal = Math.Max(0, metaFragmentsTotal);
+            CompanionTactic = companionTactic;
         }
 
         public static RunSessionSummary Empty =>
@@ -263,6 +316,7 @@ namespace AICompanionRoguelike.Roguelike
         public int GrowthRouteLevel { get; }
         public int MetaFragmentsEarned { get; }
         public int MetaFragmentsTotal { get; }
+        public CompanionSkillTendency CompanionTactic { get; }
         public bool HasSummary => RunId > 0 && EndReason != RunEndReason.None;
         public bool HasRelationship => FinalTrust >= 0 && FinalAffection >= 0;
         public bool HasCompanionFeedback => !string.IsNullOrEmpty(CompanionFeedbackLine);

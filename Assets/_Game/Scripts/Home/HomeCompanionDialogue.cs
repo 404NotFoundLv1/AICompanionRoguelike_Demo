@@ -1,5 +1,6 @@
 using System.Text;
 using AICompanionRoguelike.Character;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
 using AICompanionRoguelike.Roguelike;
 using UnityEngine;
@@ -178,6 +179,7 @@ namespace AICompanionRoguelike.Home
 
             dialogueBuilder.AppendLine("AI Companion");
             dialogueBuilder.AppendLine(BuildGreetingLine(summary));
+            dialogueBuilder.AppendLine(BuildLastRunReviewLine(summary));
 
             if (hasDialogueChoice)
             {
@@ -212,6 +214,16 @@ namespace AICompanionRoguelike.Home
 
             dialogueBuilder.AppendLine("Press E to close.");
             return dialogueBuilder.ToString();
+        }
+
+        public static string BuildLastRunReviewLine(RunSessionSummary summary)
+        {
+            if (!summary.HasSummary)
+            {
+                return "Last Run Review: no run data yet.";
+            }
+
+            return $"Last Run Review: {GetEndReasonLabel(summary.EndReason)} | Rooms {summary.RoomsCleared} | Last #{summary.LastRoomNumber} {summary.LastRoomType} | AI Tactic {GetCompanionTacticLabel(summary.CompanionTactic)}";
         }
 
         private void EnsureRelationshipSeededFromSummary(RunSessionSummary summary)
@@ -326,8 +338,8 @@ namespace AICompanionRoguelike.Home
                     return new HomeCompanionDialogueChoiceOutcome(
                         choice,
                         "Discuss Tactics",
-                        "Let's review the fight and adjust our plan.",
-                        "AI: Good. Better plans mean I can cover you more precisely.",
+                        "Let's review the last run and adjust our next sortie.",
+                        "AI: Good. We will carry that last run into the next sortie with a cleaner plan.",
                         discussTacticsTrustDelta,
                         discussTacticsAffectionDelta,
                         RelationshipMemoryTag.Reliable);
@@ -416,6 +428,38 @@ namespace AICompanionRoguelike.Home
             float width = Mathf.Min(sourceRect.width, Mathf.Max(220f, Screen.width - 16f));
             float x = sourceRect.x <= 0f ? (Screen.width - width) * 0.5f : sourceRect.x;
             return new Rect(Mathf.Max(8f, x), sourceRect.y, width, sourceRect.height);
+        }
+
+        private static string GetEndReasonLabel(RunEndReason reason)
+        {
+            switch (reason)
+            {
+                case RunEndReason.Victory:
+                    return "Victory";
+                case RunEndReason.PlayerDeath:
+                    return "Player Death";
+                case RunEndReason.BranchLeave:
+                    return "Branch Leave";
+                case RunEndReason.ManualReturnHome:
+                    return "Returned Home";
+                default:
+                    return reason.ToString();
+            }
+        }
+
+        private static string GetCompanionTacticLabel(CompanionSkillTendency tactic)
+        {
+            switch (tactic)
+            {
+                case CompanionSkillTendency.Guardian:
+                    return "Guardian";
+                case CompanionSkillTendency.Suppressor:
+                    return "Suppressor";
+                case CompanionSkillTendency.Link:
+                    return "Link";
+                default:
+                    return "Unselected";
+            }
         }
     }
 }

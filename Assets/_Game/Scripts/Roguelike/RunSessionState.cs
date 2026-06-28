@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Progression;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -217,7 +218,8 @@ namespace AICompanionRoguelike.Roguelike
                 growthRouteSpecializationCount,
                 growthRouteLevel,
                 metaFragmentsEarned,
-                metaFragmentsTotal);
+                metaFragmentsTotal,
+                CompanionRunBuildState.CurrentTendency);
         }
     }
 }
