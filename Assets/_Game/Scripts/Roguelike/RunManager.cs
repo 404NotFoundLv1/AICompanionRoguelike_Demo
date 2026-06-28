@@ -90,6 +90,12 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(0f)] private float counterplayRouteDamageBonusPerLevel = 0.1f;
         [SerializeField, Range(0.1f, 1f)] private float companionRouteCooldownMultiplierPerLevel = 0.9f;
         [SerializeField, Min(0f)] private float survivalRouteRescueHealthBonusPerLevel = 5f;
+        [SerializeField, Min(0f)] private float routeSpecializationPlayerDamageBonus = 0.12f;
+        [SerializeField, Min(0f)] private float routeSpecializationCounterplayDodgeBoostDurationBonus = 0.6f;
+        [SerializeField, Min(0f)] private float routeSpecializationCounterplayDamageBonus = 0.12f;
+        [SerializeField, Range(0.1f, 1f)] private float routeSpecializationCompanionCooldownMultiplier = 0.85f;
+        [SerializeField, Min(0f)] private float routeSpecializationSurvivalRescueHealthBonus = 8f;
+        [SerializeField, Min(0)] private int routeSpecializationBuildBonusLevel = 1;
         [SerializeField, Min(0)] private int eliteBonusRewardChoices = 1;
         [SerializeField, Min(1)] private int shopRewardChoiceCount = 2;
         [SerializeField, Min(0f)] private float safeRoomHealAmount = 25f;
@@ -123,6 +129,11 @@ namespace AICompanionRoguelike.Roguelike
         private bool hasActiveGrowthRoute;
         private RunRewardCategory activeGrowthRouteCategory = RunRewardCategory.Player;
         private int activeGrowthRouteLevel;
+        private int playerRouteSpecializationCount;
+        private int companionRouteSpecializationCount;
+        private int counterplayRouteSpecializationCount;
+        private int survivalRouteSpecializationCount;
+        private int buildRouteSpecializationCount;
 
         public static event Action<RunManager> AnyRunStarted;
         public event Action<RunManager> RunStarted;
@@ -155,20 +166,31 @@ namespace AICompanionRoguelike.Roguelike
         public bool HasActiveGrowthRoute => hasActiveGrowthRoute;
         public RunRewardCategory ActiveGrowthRouteCategory => activeGrowthRouteCategory;
         public int ActiveGrowthRouteLevel => activeGrowthRouteLevel;
-        public float PlayerRouteDamageMultiplier => GetRouteMultiplier(RunRewardCategory.Player, playerRouteDamageBonusPerLevel);
+        public float PlayerRouteDamageMultiplier => GetRouteMultiplier(RunRewardCategory.Player, playerRouteDamageBonusPerLevel)
+            + (IsActiveGrowthRoute(RunRewardCategory.Player)
+                ? routeSpecializationPlayerDamageBonus * playerRouteSpecializationCount
+                : 0f);
         public float CounterplayRouteDodgeBoostDurationBonus => IsActiveGrowthRoute(RunRewardCategory.Counterplay)
             ? counterplayRouteDodgeBoostDurationPerLevel * Mathf.Max(0, activeGrowthRouteLevel - 1)
+                + routeSpecializationCounterplayDodgeBoostDurationBonus * counterplayRouteSpecializationCount
             : 0f;
-        public float CounterplayRouteDamageMultiplier => GetRouteMultiplier(RunRewardCategory.Counterplay, counterplayRouteDamageBonusPerLevel);
+        public float CounterplayRouteDamageMultiplier => GetRouteMultiplier(RunRewardCategory.Counterplay, counterplayRouteDamageBonusPerLevel)
+            + (IsActiveGrowthRoute(RunRewardCategory.Counterplay)
+                ? routeSpecializationCounterplayDamageBonus * counterplayRouteSpecializationCount
+                : 0f);
         public float CompanionRouteCooldownMultiplier => IsActiveGrowthRoute(RunRewardCategory.Companion)
             ? Mathf.Pow(companionRouteCooldownMultiplierPerLevel, Mathf.Max(0, activeGrowthRouteLevel - 1))
+                * Mathf.Pow(routeSpecializationCompanionCooldownMultiplier, companionRouteSpecializationCount)
             : 1f;
         public float SurvivalRouteRescueHealthBonus => IsActiveGrowthRoute(RunRewardCategory.Survival)
             ? survivalRouteRescueHealthBonusPerLevel * Mathf.Max(0, activeGrowthRouteLevel - 1)
+                + routeSpecializationSurvivalRescueHealthBonus * survivalRouteSpecializationCount
             : 0f;
         public int BuildRouteBonusLevel => IsActiveGrowthRoute(RunRewardCategory.Build)
             ? Mathf.Max(0, activeGrowthRouteLevel - 1)
+                + routeSpecializationBuildBonusLevel * buildRouteSpecializationCount
             : 0;
+        public int CurrentGrowthRouteSpecializationCount => GetRouteSpecializationCount(activeGrowthRouteCategory);
         public string LastRoomFeedbackMessage => lastRoomFeedbackMessage;
         public string LastRoomModifierFeedbackTitle => lastRoomModifierFeedbackTitle;
         public string LastRoomModifierFeedbackLine => lastRoomModifierFeedbackLine;
@@ -547,6 +569,10 @@ namespace AICompanionRoguelike.Roguelike
             CompanionRelationship relationship = FindAnyObjectByType<CompanionRelationship>();
             int finalTrust = relationship != null ? relationship.Trust : -1;
             int finalAffection = relationship != null ? relationship.Affection : -1;
+            RunSessionState.RecordGrowthRouteSummary(
+                BuildCurrentGrowthRouteSummaryLabel(),
+                hasActiveGrowthRoute ? BuildCurrentGrowthRouteEffectLabel() : string.Empty,
+                CurrentGrowthRouteSpecializationCount);
             RunSessionState.EndRun(RunEndReason.Victory, finalTrust, finalAffection);
 
             if (logRunMessages)
@@ -583,6 +609,12 @@ namespace AICompanionRoguelike.Roguelike
 
             List<RunRewardType> candidates = BuildRewardCandidateList();
             int targetCount = GetRewardChoiceTargetCount(sourceRoomType, candidates.Count);
+            if (hasActiveGrowthRoute && currentRewardChoices.Count < targetCount)
+            {
+                currentRewardChoices.Add(CreateRewardChoice(RunRewardType.GrowthRouteSpecialization));
+                candidates.Remove(RunRewardType.GrowthRouteSpecialization);
+            }
+
             RunRewardType? buildRewardType = GetCurrentBuildRewardType();
             if (buildRewardType.HasValue && currentRewardChoices.Count < targetCount)
             {
@@ -687,6 +719,11 @@ namespace AICompanionRoguelike.Roguelike
             if (buildRewardType.HasValue)
             {
                 AddRewardCandidate(candidates, buildRewardType.Value);
+            }
+
+            if (hasActiveGrowthRoute)
+            {
+                AddRewardCandidate(candidates, RunRewardType.GrowthRouteSpecialization);
             }
 
             return candidates;
@@ -807,6 +844,8 @@ namespace AICompanionRoguelike.Roguelike
                         rewardType,
                         CompanionSkillTendencyRules.GetBuildRewardTitle(CompanionSkillTendency.Link),
                         CompanionSkillTendencyRules.GetBuildRewardDescription(CompanionSkillTendency.Link));
+                case RunRewardType.GrowthRouteSpecialization:
+                    return CreateGrowthRouteSpecializationChoice();
                 default:
                     return new RunRewardChoice(rewardType, rewardType.ToString(), "未知奖励。");
             }
@@ -816,6 +855,8 @@ namespace AICompanionRoguelike.Roguelike
         {
             switch (rewardType)
             {
+                case RunRewardType.GrowthRouteSpecialization:
+                    return hasActiveGrowthRoute ? activeGrowthRouteCategory : RunRewardCategory.Player;
                 case RunRewardType.MaxHealth:
                 case RunRewardType.BondRescueHealth:
                     return RunRewardCategory.Survival;
@@ -863,6 +904,8 @@ namespace AICompanionRoguelike.Roguelike
                     return "build-suppressor";
                 case RunRewardType.LinkBuildUpgrade:
                     return "build-link";
+                case RunRewardType.GrowthRouteSpecialization:
+                    return $"route-special-{RunRewardChoice.GetCategoryLabel(GetRewardCategory(rewardType)).ToLowerInvariant()}";
                 default:
                     return "reward";
             }
@@ -947,6 +990,8 @@ namespace AICompanionRoguelike.Roguelike
                     return BuildBuildLevelPreview(CompanionSkillTendency.Suppressor);
                 case RunRewardType.LinkBuildUpgrade:
                     return BuildBuildLevelPreview(CompanionSkillTendency.Link);
+                case RunRewardType.GrowthRouteSpecialization:
+                    return BuildGrowthRouteSpecializationPreviewLine();
                 default:
                     return string.Empty;
             }
@@ -966,6 +1011,62 @@ namespace AICompanionRoguelike.Roguelike
         {
             int currentLevel = CompanionRunBuildState.GetUpgradeLevel(tendency);
             return $"{tendency} Build: Lv{currentLevel} -> Lv{currentLevel + 1}";
+        }
+
+        private RunRewardChoice CreateGrowthRouteSpecializationChoice()
+        {
+            switch (activeGrowthRouteCategory)
+            {
+                case RunRewardCategory.Player:
+                    return new RunRewardChoice(
+                        RunRewardType.GrowthRouteSpecialization,
+                        "Player Route Core",
+                        "Route-exclusive reward: deepen player attack damage for this run.");
+                case RunRewardCategory.Companion:
+                    return new RunRewardChoice(
+                        RunRewardType.GrowthRouteSpecialization,
+                        "AI Route Core",
+                        "Route-exclusive reward: make companion attacks cycle faster this run.");
+                case RunRewardCategory.Counterplay:
+                    return new RunRewardChoice(
+                        RunRewardType.GrowthRouteSpecialization,
+                        "Counterplay Route Core",
+                        "Route-exclusive reward: extend dodge punish windows and counter damage.");
+                case RunRewardCategory.Survival:
+                    return new RunRewardChoice(
+                        RunRewardType.GrowthRouteSpecialization,
+                        "Survival Route Core",
+                        "Route-exclusive reward: improve bond rescue retained HP.");
+                case RunRewardCategory.Build:
+                    return new RunRewardChoice(
+                        RunRewardType.GrowthRouteSpecialization,
+                        "Build Route Core",
+                        "Route-exclusive reward: add temporary AI Build route power.");
+                default:
+                    return new RunRewardChoice(
+                        RunRewardType.GrowthRouteSpecialization,
+                        "Growth Route Core",
+                        "Route-exclusive reward: deepen the active route.");
+            }
+        }
+
+        private string BuildGrowthRouteSpecializationPreviewLine()
+        {
+            switch (activeGrowthRouteCategory)
+            {
+                case RunRewardCategory.Player:
+                    return $"Damage route: x{PlayerRouteDamageMultiplier:0.##} -> x{PlayerRouteDamageMultiplier + routeSpecializationPlayerDamageBonus:0.##}";
+                case RunRewardCategory.Companion:
+                    return $"AI Cooldown route: x{CompanionRouteCooldownMultiplier:0.##} -> x{CompanionRouteCooldownMultiplier * routeSpecializationCompanionCooldownMultiplier:0.##}";
+                case RunRewardCategory.Counterplay:
+                    return $"Counter route: +{CounterplayRouteDodgeBoostDurationBonus:0.0}s -> +{CounterplayRouteDodgeBoostDurationBonus + routeSpecializationCounterplayDodgeBoostDurationBonus:0.0}s / x{CounterplayRouteDamageMultiplier + routeSpecializationCounterplayDamageBonus:0.##}";
+                case RunRewardCategory.Survival:
+                    return $"Rescue HP route: +{SurvivalRouteRescueHealthBonus:0} -> +{SurvivalRouteRescueHealthBonus + routeSpecializationSurvivalRescueHealthBonus:0}";
+                case RunRewardCategory.Build:
+                    return $"Build route: +{BuildRouteBonusLevel} -> +{BuildRouteBonusLevel + routeSpecializationBuildBonusLevel}";
+                default:
+                    return "Route specialization: active route grows stronger";
+            }
         }
 
         private void ApplyReward(RunRewardType rewardType)
@@ -1010,6 +1111,9 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardType.LinkBuildUpgrade:
                     ApplyBuildUpgradeReward(CompanionSkillTendency.Link);
                     break;
+                case RunRewardType.GrowthRouteSpecialization:
+                    ApplyGrowthRouteSpecializationReward();
+                    break;
             }
 
             if (IsCounterplayReward(rewardType))
@@ -1038,6 +1142,33 @@ namespace AICompanionRoguelike.Roguelike
         private void ApplyBuildUpgradeReward(CompanionSkillTendency tendency)
         {
             CompanionRunBuildState.AddUpgrade(tendency);
+        }
+
+        private void ApplyGrowthRouteSpecializationReward()
+        {
+            if (!hasActiveGrowthRoute)
+            {
+                return;
+            }
+
+            switch (activeGrowthRouteCategory)
+            {
+                case RunRewardCategory.Player:
+                    playerRouteSpecializationCount++;
+                    break;
+                case RunRewardCategory.Companion:
+                    companionRouteSpecializationCount++;
+                    break;
+                case RunRewardCategory.Counterplay:
+                    counterplayRouteSpecializationCount++;
+                    break;
+                case RunRewardCategory.Survival:
+                    survivalRouteSpecializationCount++;
+                    break;
+                case RunRewardCategory.Build:
+                    buildRouteSpecializationCount++;
+                    break;
+            }
         }
 
         private float ApplyRoomEntryEffect(RoomType roomType, RoomModifierType roomModifier)
@@ -1385,6 +1516,11 @@ namespace AICompanionRoguelike.Roguelike
             hasActiveGrowthRoute = false;
             activeGrowthRouteCategory = RunRewardCategory.Player;
             activeGrowthRouteLevel = 0;
+            playerRouteSpecializationCount = 0;
+            companionRouteSpecializationCount = 0;
+            counterplayRouteSpecializationCount = 0;
+            survivalRouteSpecializationCount = 0;
+            buildRouteSpecializationCount = 0;
         }
 
         private void RecordRewardGrowth(RunRewardCategory category)
@@ -1478,6 +1614,25 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        private int GetRouteSpecializationCount(RunRewardCategory category)
+        {
+            switch (category)
+            {
+                case RunRewardCategory.Player:
+                    return playerRouteSpecializationCount;
+                case RunRewardCategory.Companion:
+                    return companionRouteSpecializationCount;
+                case RunRewardCategory.Counterplay:
+                    return counterplayRouteSpecializationCount;
+                case RunRewardCategory.Survival:
+                    return survivalRouteSpecializationCount;
+                case RunRewardCategory.Build:
+                    return buildRouteSpecializationCount;
+                default:
+                    return 0;
+            }
+        }
+
         private bool IsActiveGrowthRoute(RunRewardCategory category)
         {
             return hasActiveGrowthRoute
@@ -1495,8 +1650,21 @@ namespace AICompanionRoguelike.Roguelike
         private string BuildCurrentGrowthRouteLabel()
         {
             return hasActiveGrowthRoute
-                ? $"Growth Route: {RunRewardChoice.GetCategoryLabel(activeGrowthRouteCategory)} Lv{activeGrowthRouteLevel} | {BuildCurrentGrowthRouteEffectLabel()}"
+                ? $"Growth Route: {RunRewardChoice.GetCategoryLabel(activeGrowthRouteCategory)} Lv{activeGrowthRouteLevel} | {BuildCurrentGrowthRouteEffectLabel()}{BuildGrowthRouteSpecializationLabelSuffix()}"
                 : "Growth Route: forming";
+        }
+
+        private string BuildCurrentGrowthRouteSummaryLabel()
+        {
+            return hasActiveGrowthRoute
+                ? $"{RunRewardChoice.GetCategoryLabel(activeGrowthRouteCategory)} Lv{activeGrowthRouteLevel}"
+                : string.Empty;
+        }
+
+        private string BuildGrowthRouteSpecializationLabelSuffix()
+        {
+            int specializationCount = CurrentGrowthRouteSpecializationCount;
+            return specializationCount > 0 ? $" | Special x{specializationCount}" : string.Empty;
         }
 
         private string BuildCurrentGrowthRouteEffectLabel()
@@ -2033,6 +2201,7 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.Label($"清理房间：{summary.RoomsCleared}/{roomsToCompleteRun}");
             GUILayout.Label($"最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
             GUILayout.Label(BuildCompletionRouteLine(summary));
+            GUILayout.Label(BuildCompletionGrowthRouteLine(summary));
             GUILayout.Label(BuildCompletionRewardLine(summary));
             GUILayout.Label(BuildCompletionRelationshipLine(summary));
             GUILayout.Label(BuildCompletionBossLine(summary));
@@ -2062,6 +2231,11 @@ namespace AICompanionRoguelike.Roguelike
         private static string BuildCompletionRouteLine(RunSessionSummary summary)
         {
             return summary.HasRoutePath ? summary.RoutePathLabel : "Route: none";
+        }
+
+        private static string BuildCompletionGrowthRouteLine(RunSessionSummary summary)
+        {
+            return summary.GrowthRouteSummaryLine;
         }
 
         private static string BuildCompletionRelationshipLine(RunSessionSummary summary)

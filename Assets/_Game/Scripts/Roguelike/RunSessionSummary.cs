@@ -121,6 +121,49 @@ namespace AICompanionRoguelike.Roguelike
             int bossWarningDodges,
             RoomType[] routePath,
             RoomModifierType[] routeModifiers)
+            : this(
+                runId,
+                endReason,
+                roomsCleared,
+                lastRoomNumber,
+                lastRoomType,
+                rewardTitles,
+                finalTrust,
+                finalAffection,
+                companionFeedbackLine,
+                companionTrustDelta,
+                companionAffectionDelta,
+                bossSupportActivations,
+                bossWarningHits,
+                bossWarningDodges,
+                routePath,
+                routeModifiers,
+                string.Empty,
+                string.Empty,
+                0)
+        {
+        }
+
+        public RunSessionSummary(
+            int runId,
+            RunEndReason endReason,
+            int roomsCleared,
+            int lastRoomNumber,
+            RoomType lastRoomType,
+            string[] rewardTitles,
+            int finalTrust,
+            int finalAffection,
+            string companionFeedbackLine,
+            int companionTrustDelta,
+            int companionAffectionDelta,
+            int bossSupportActivations,
+            int bossWarningHits,
+            int bossWarningDodges,
+            RoomType[] routePath,
+            RoomModifierType[] routeModifiers,
+            string growthRouteLabel,
+            string growthRouteEffectLabel,
+            int growthRouteSpecializationCount)
         {
             RunId = runId;
             EndReason = endReason;
@@ -138,6 +181,9 @@ namespace AICompanionRoguelike.Roguelike
             BossSupportActivations = Math.Max(0, bossSupportActivations);
             BossWarningHits = Math.Max(0, bossWarningHits);
             BossWarningDodges = Math.Max(0, bossWarningDodges);
+            GrowthRouteLabel = growthRouteLabel ?? string.Empty;
+            GrowthRouteEffectLabel = growthRouteEffectLabel ?? string.Empty;
+            GrowthRouteSpecializationCount = Math.Max(0, growthRouteSpecializationCount);
         }
 
         public static RunSessionSummary Empty =>
@@ -159,11 +205,18 @@ namespace AICompanionRoguelike.Roguelike
         public int BossSupportActivations { get; }
         public int BossWarningHits { get; }
         public int BossWarningDodges { get; }
+        public string GrowthRouteLabel { get; }
+        public string GrowthRouteEffectLabel { get; }
+        public int GrowthRouteSpecializationCount { get; }
         public bool HasSummary => RunId > 0 && EndReason != RunEndReason.None;
         public bool HasRelationship => FinalTrust >= 0 && FinalAffection >= 0;
         public bool HasCompanionFeedback => !string.IsNullOrEmpty(CompanionFeedbackLine);
         public bool HasRoutePath => RoutePath.Length > 0;
         public bool HasRouteModifiers => RouteModifiers.Length > 0;
+        public bool HasGrowthRouteSummary => !string.IsNullOrEmpty(GrowthRouteLabel);
+        public string GrowthRouteSummaryLine => HasGrowthRouteSummary
+            ? $"Growth Route: {GrowthRouteLabel} | {GrowthRouteEffectLabel} | Special x{GrowthRouteSpecializationCount}"
+            : "Growth Route: none";
 
         public string RoutePathLabel
         {

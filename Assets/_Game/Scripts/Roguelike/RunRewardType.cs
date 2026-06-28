@@ -13,6 +13,7 @@ namespace AICompanionRoguelike.Roguelike
         GuardOpeningDamage,
         GuardianBuildUpgrade,
         SuppressorBuildUpgrade,
-        LinkBuildUpgrade
+        LinkBuildUpgrade,
+        GrowthRouteSpecialization
     }
 }

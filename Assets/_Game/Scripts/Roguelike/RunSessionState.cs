@@ -21,6 +21,9 @@ namespace AICompanionRoguelike.Roguelike
         private static int bossSupportActivations;
         private static int bossWarningHits;
         private static int bossWarningDodges;
+        private static string growthRouteLabel = string.Empty;
+        private static string growthRouteEffectLabel = string.Empty;
+        private static int growthRouteSpecializationCount;
 
         public static event Action<RunSessionSnapshot> RunStarted;
         public static event Action<RunSessionSnapshot> RunEnded;
@@ -110,6 +113,16 @@ namespace AICompanionRoguelike.Roguelike
             bossWarningDodges = Mathf.Max(0, warningDodges);
         }
 
+        public static void RecordGrowthRouteSummary(
+            string routeLabel,
+            string effectLabel,
+            int specializationCount)
+        {
+            growthRouteLabel = routeLabel ?? string.Empty;
+            growthRouteEffectLabel = effectLabel ?? string.Empty;
+            growthRouteSpecializationCount = Mathf.Max(0, specializationCount);
+        }
+
         public static void EndRun(RunEndReason reason, int finalTrust = -1, int finalAffection = -1)
         {
             if (!IsRunActive)
@@ -141,6 +154,9 @@ namespace AICompanionRoguelike.Roguelike
             bossSupportActivations = 0;
             bossWarningHits = 0;
             bossWarningDodges = 0;
+            growthRouteLabel = string.Empty;
+            growthRouteEffectLabel = string.Empty;
+            growthRouteSpecializationCount = 0;
         }
 
         private static RunSessionSummary CreateSummary(RunEndReason reason, int finalTrust, int finalAffection)
@@ -161,7 +177,10 @@ namespace AICompanionRoguelike.Roguelike
                 bossWarningHits,
                 bossWarningDodges,
                 currentRoutePath.ToArray(),
-                currentRouteModifiers.ToArray());
+                currentRouteModifiers.ToArray(),
+                growthRouteLabel,
+                growthRouteEffectLabel,
+                growthRouteSpecializationCount);
         }
     }
 }
