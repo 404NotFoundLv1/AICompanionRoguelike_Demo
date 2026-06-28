@@ -1,5 +1,6 @@
 using System;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Progression;
 
 namespace AICompanionRoguelike.Save
 {
@@ -31,12 +32,22 @@ namespace AICompanionRoguelike.Save
                     relationship.memoryTags);
             }
 
+            MetaProgressionSaveData metaProgression = result.Data.metaProgression;
+            if (metaProgression != null && metaProgression.hasData)
+            {
+                MetaProgressionState.RestoreSnapshot(
+                    metaProgression.coreFragments,
+                    metaProgression.playerMaxHealthLevel,
+                    metaProgression.playerDamageLevel,
+                    metaProgression.companionCooldownLevel);
+            }
+
             return result;
         }
 
         public bool SaveSession()
         {
-            if (!CompanionRelationshipState.HasState)
+            if (!CompanionRelationshipState.HasState && !MetaProgressionState.HasState)
             {
                 return false;
             }
@@ -45,7 +56,8 @@ namespace AICompanionRoguelike.Save
             {
                 saveVersion = GameSaveData.CurrentVersion,
                 savedAtUtc = DateTime.UtcNow.ToString("O"),
-                relationship = CaptureRelationship()
+                relationship = CaptureRelationship(),
+                metaProgression = CaptureMetaProgression()
             };
 
             store.Save(data);
@@ -61,17 +73,32 @@ namespace AICompanionRoguelike.Save
         {
             RelationshipSaveData relationship = new RelationshipSaveData
             {
-                hasData = true,
+                hasData = CompanionRelationshipState.HasState,
                 trust = CompanionRelationshipState.Trust,
                 affection = CompanionRelationshipState.Affection
             };
 
-            for (int i = 0; i < CompanionRelationshipState.MemoryTags.Count; i++)
+            if (CompanionRelationshipState.HasState)
             {
-                relationship.memoryTags.Add(CompanionRelationshipState.MemoryTags[i]);
+                for (int i = 0; i < CompanionRelationshipState.MemoryTags.Count; i++)
+                {
+                    relationship.memoryTags.Add(CompanionRelationshipState.MemoryTags[i]);
+                }
             }
 
             return relationship;
+        }
+
+        private static MetaProgressionSaveData CaptureMetaProgression()
+        {
+            return new MetaProgressionSaveData
+            {
+                hasData = MetaProgressionState.HasState,
+                coreFragments = MetaProgressionState.CoreFragments,
+                playerMaxHealthLevel = MetaProgressionState.PlayerMaxHealthLevel,
+                playerDamageLevel = MetaProgressionState.PlayerDamageLevel,
+                companionCooldownLevel = MetaProgressionState.CompanionCooldownLevel
+            };
         }
     }
 }

@@ -164,6 +164,55 @@ namespace AICompanionRoguelike.Roguelike
             string growthRouteLabel,
             string growthRouteEffectLabel,
             int growthRouteSpecializationCount)
+            : this(
+                runId,
+                endReason,
+                roomsCleared,
+                lastRoomNumber,
+                lastRoomType,
+                rewardTitles,
+                finalTrust,
+                finalAffection,
+                companionFeedbackLine,
+                companionTrustDelta,
+                companionAffectionDelta,
+                bossSupportActivations,
+                bossWarningHits,
+                bossWarningDodges,
+                routePath,
+                routeModifiers,
+                growthRouteLabel,
+                growthRouteEffectLabel,
+                growthRouteSpecializationCount,
+                0,
+                0,
+                0)
+        {
+        }
+
+        public RunSessionSummary(
+            int runId,
+            RunEndReason endReason,
+            int roomsCleared,
+            int lastRoomNumber,
+            RoomType lastRoomType,
+            string[] rewardTitles,
+            int finalTrust,
+            int finalAffection,
+            string companionFeedbackLine,
+            int companionTrustDelta,
+            int companionAffectionDelta,
+            int bossSupportActivations,
+            int bossWarningHits,
+            int bossWarningDodges,
+            RoomType[] routePath,
+            RoomModifierType[] routeModifiers,
+            string growthRouteLabel,
+            string growthRouteEffectLabel,
+            int growthRouteSpecializationCount,
+            int growthRouteLevel,
+            int metaFragmentsEarned,
+            int metaFragmentsTotal)
         {
             RunId = runId;
             EndReason = endReason;
@@ -184,6 +233,9 @@ namespace AICompanionRoguelike.Roguelike
             GrowthRouteLabel = growthRouteLabel ?? string.Empty;
             GrowthRouteEffectLabel = growthRouteEffectLabel ?? string.Empty;
             GrowthRouteSpecializationCount = Math.Max(0, growthRouteSpecializationCount);
+            GrowthRouteLevel = Math.Max(0, growthRouteLevel);
+            MetaFragmentsEarned = Math.Max(0, metaFragmentsEarned);
+            MetaFragmentsTotal = Math.Max(0, metaFragmentsTotal);
         }
 
         public static RunSessionSummary Empty =>
@@ -208,6 +260,9 @@ namespace AICompanionRoguelike.Roguelike
         public string GrowthRouteLabel { get; }
         public string GrowthRouteEffectLabel { get; }
         public int GrowthRouteSpecializationCount { get; }
+        public int GrowthRouteLevel { get; }
+        public int MetaFragmentsEarned { get; }
+        public int MetaFragmentsTotal { get; }
         public bool HasSummary => RunId > 0 && EndReason != RunEndReason.None;
         public bool HasRelationship => FinalTrust >= 0 && FinalAffection >= 0;
         public bool HasCompanionFeedback => !string.IsNullOrEmpty(CompanionFeedbackLine);
@@ -217,6 +272,8 @@ namespace AICompanionRoguelike.Roguelike
         public string GrowthRouteSummaryLine => HasGrowthRouteSummary
             ? $"Growth Route: {GrowthRouteLabel} | {GrowthRouteEffectLabel} | Special x{GrowthRouteSpecializationCount}"
             : "Growth Route: none";
+        public string MetaProgressionSummaryLine =>
+            $"Core Fragments: +{MetaFragmentsEarned} | Total {MetaFragmentsTotal}";
 
         public string RoutePathLabel
         {

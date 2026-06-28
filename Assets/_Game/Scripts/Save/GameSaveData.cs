@@ -12,6 +12,7 @@ namespace AICompanionRoguelike.Save
         public int saveVersion = CurrentVersion;
         public string savedAtUtc = string.Empty;
         public RelationshipSaveData relationship = new RelationshipSaveData();
+        public MetaProgressionSaveData metaProgression = new MetaProgressionSaveData();
 
         public void Normalize()
         {
@@ -20,7 +21,13 @@ namespace AICompanionRoguelike.Save
                 relationship = new RelationshipSaveData();
             }
 
+            if (metaProgression == null)
+            {
+                metaProgression = new MetaProgressionSaveData();
+            }
+
             relationship.Normalize();
+            metaProgression.Normalize();
         }
     }
 
@@ -38,6 +45,24 @@ namespace AICompanionRoguelike.Save
             {
                 memoryTags = new List<RelationshipMemoryTagScore>();
             }
+        }
+    }
+
+    [Serializable]
+    public sealed class MetaProgressionSaveData
+    {
+        public bool hasData;
+        public int coreFragments;
+        public int playerMaxHealthLevel;
+        public int playerDamageLevel;
+        public int companionCooldownLevel;
+
+        public void Normalize()
+        {
+            coreFragments = Math.Max(0, coreFragments);
+            playerMaxHealthLevel = Math.Max(0, playerMaxHealthLevel);
+            playerDamageLevel = Math.Max(0, playerDamageLevel);
+            companionCooldownLevel = Math.Max(0, companionCooldownLevel);
         }
     }
 }

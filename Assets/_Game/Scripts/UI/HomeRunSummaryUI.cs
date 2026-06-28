@@ -27,6 +27,7 @@ namespace AICompanionRoguelike.UI
             GUILayout.Label($"清理房间：{summary.RoomsCleared}    最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
             GUILayout.Label(BuildRouteLine(summary));
             GUILayout.Label(BuildGrowthRouteLine(summary));
+            GUILayout.Label(BuildMetaProgressionLine(summary));
             GUILayout.Label(BuildRewardLine(summary));
             GUILayout.Label(BuildRelationshipLine(summary));
             GUILayout.Label(BuildBossLine(summary));
@@ -65,6 +66,11 @@ namespace AICompanionRoguelike.UI
         private static string BuildGrowthRouteLine(RunSessionSummary summary)
         {
             return summary.GrowthRouteSummaryLine;
+        }
+
+        private static string BuildMetaProgressionLine(RunSessionSummary summary)
+        {
+            return summary.MetaProgressionSummaryLine;
         }
 
         private static string BuildRelationshipLine(RunSessionSummary summary)

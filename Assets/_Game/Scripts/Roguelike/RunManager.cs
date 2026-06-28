@@ -4,6 +4,7 @@ using AICompanionRoguelike.Character;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Progression;
 using AICompanionRoguelike.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -100,6 +101,11 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(1)] private int shopRewardChoiceCount = 2;
         [SerializeField, Min(0f)] private float safeRoomHealAmount = 25f;
 
+        [Header("Meta Progression")]
+        [SerializeField, Min(0f)] private float metaPlayerMaxHealthBonusPerLevel = 10f;
+        [SerializeField, Min(0f)] private float metaPlayerDamageBonusPerLevel = 0.08f;
+        [SerializeField, Range(0.1f, 1f)] private float metaCompanionCooldownMultiplierPerLevel = 0.95f;
+
         [Header("Debug")]
         [SerializeField] private bool logRunMessages = true;
 
@@ -134,6 +140,7 @@ namespace AICompanionRoguelike.Roguelike
         private int counterplayRouteSpecializationCount;
         private int survivalRouteSpecializationCount;
         private int buildRouteSpecializationCount;
+        private int appliedMetaProgressionRunId = -1;
 
         public static event Action<RunManager> AnyRunStarted;
         public event Action<RunManager> RunStarted;
@@ -305,6 +312,7 @@ namespace AICompanionRoguelike.Roguelike
             ResetRewardGrowthCounts();
             ClearRewardChoices();
             ClearPreparedRoomChoices();
+            ApplyMetaProgressionUpgrades();
 
             if (logRunMessages)
             {
@@ -572,7 +580,8 @@ namespace AICompanionRoguelike.Roguelike
             RunSessionState.RecordGrowthRouteSummary(
                 BuildCurrentGrowthRouteSummaryLabel(),
                 hasActiveGrowthRoute ? BuildCurrentGrowthRouteEffectLabel() : string.Empty,
-                CurrentGrowthRouteSpecializationCount);
+                CurrentGrowthRouteSpecializationCount,
+                activeGrowthRouteLevel);
             RunSessionState.EndRun(RunEndReason.Victory, finalTrust, finalAffection);
 
             if (logRunMessages)
@@ -1408,6 +1417,58 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        private void ApplyMetaProgressionUpgrades()
+        {
+            if (!MetaProgressionState.HasState
+                || appliedMetaProgressionRunId == RunSessionState.CurrentRunId)
+            {
+                return;
+            }
+
+            appliedMetaProgressionRunId = RunSessionState.CurrentRunId;
+            GameObject player = GameObject.Find("Player");
+
+            int maxHealthLevel = MetaProgressionState.PlayerMaxHealthLevel;
+            if (maxHealthLevel > 0)
+            {
+                HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
+                if (health != null)
+                {
+                    health.SetMaxHealth(
+                        health.MaxHealth + metaPlayerMaxHealthBonusPerLevel * maxHealthLevel,
+                        true);
+                }
+            }
+
+            int damageLevel = MetaProgressionState.PlayerDamageLevel;
+            if (damageLevel > 0)
+            {
+                PlayerCombat2D combat = player != null ? player.GetComponent<PlayerCombat2D>() : null;
+                if (combat != null)
+                {
+                    combat.MultiplyDamage(1f + metaPlayerDamageBonusPerLevel * damageLevel);
+                }
+            }
+
+            int cooldownLevel = MetaProgressionState.CompanionCooldownLevel;
+            if (cooldownLevel > 0)
+            {
+                CompanionCombat companionCombat = FindAnyObjectByType<CompanionCombat>();
+                if (companionCombat != null)
+                {
+                    companionCombat.MultiplyCooldown(
+                        Mathf.Pow(metaCompanionCooldownMultiplierPerLevel, cooldownLevel));
+                }
+            }
+
+            if (logRunMessages)
+            {
+                Debug.Log(
+                    $"Meta upgrades applied. HP Lv{maxHealthLevel}, Damage Lv{damageLevel}, AI Cooldown Lv{cooldownLevel}.",
+                    this);
+            }
+        }
+
         private void ApplyMaxHealthReward(GameObject player)
         {
             HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
@@ -2202,6 +2263,7 @@ namespace AICompanionRoguelike.Roguelike
             GUILayout.Label($"最后房间：#{summary.LastRoomNumber} {summary.LastRoomType}");
             GUILayout.Label(BuildCompletionRouteLine(summary));
             GUILayout.Label(BuildCompletionGrowthRouteLine(summary));
+            GUILayout.Label(BuildCompletionMetaProgressionLine(summary));
             GUILayout.Label(BuildCompletionRewardLine(summary));
             GUILayout.Label(BuildCompletionRelationshipLine(summary));
             GUILayout.Label(BuildCompletionBossLine(summary));
@@ -2236,6 +2298,11 @@ namespace AICompanionRoguelike.Roguelike
         private static string BuildCompletionGrowthRouteLine(RunSessionSummary summary)
         {
             return summary.GrowthRouteSummaryLine;
+        }
+
+        private static string BuildCompletionMetaProgressionLine(RunSessionSummary summary)
+        {
+            return summary.MetaProgressionSummaryLine;
         }
 
         private static string BuildCompletionRelationshipLine(RunSessionSummary summary)

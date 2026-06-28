@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Progression;
 
 namespace AICompanionRoguelike.Save
 {
@@ -31,6 +32,7 @@ namespace AICompanionRoguelike.Save
 
             LastLoadResult = service.LoadIntoSession();
             CompanionRelationshipState.StateChanged += HandleRelationshipStateChanged;
+            MetaProgressionState.StateChanged += HandleMetaProgressionStateChanged;
             isStarted = true;
             Loaded?.Invoke(LastLoadResult);
             return LastLoadResult;
@@ -70,6 +72,7 @@ namespace AICompanionRoguelike.Save
             if (isStarted)
             {
                 CompanionRelationshipState.StateChanged -= HandleRelationshipStateChanged;
+                MetaProgressionState.StateChanged -= HandleMetaProgressionStateChanged;
             }
 
             isStarted = false;
@@ -77,6 +80,11 @@ namespace AICompanionRoguelike.Save
         }
 
         private void HandleRelationshipStateChanged()
+        {
+            SaveNow();
+        }
+
+        private void HandleMetaProgressionStateChanged()
         {
             SaveNow();
         }

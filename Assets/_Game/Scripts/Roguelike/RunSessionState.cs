@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AICompanionRoguelike.Progression;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -24,6 +25,9 @@ namespace AICompanionRoguelike.Roguelike
         private static string growthRouteLabel = string.Empty;
         private static string growthRouteEffectLabel = string.Empty;
         private static int growthRouteSpecializationCount;
+        private static int growthRouteLevel;
+        private static int metaFragmentsEarned;
+        private static int metaFragmentsTotal;
 
         public static event Action<RunSessionSnapshot> RunStarted;
         public static event Action<RunSessionSnapshot> RunEnded;
@@ -118,9 +122,19 @@ namespace AICompanionRoguelike.Roguelike
             string effectLabel,
             int specializationCount)
         {
+            RecordGrowthRouteSummary(routeLabel, effectLabel, specializationCount, 0);
+        }
+
+        public static void RecordGrowthRouteSummary(
+            string routeLabel,
+            string effectLabel,
+            int specializationCount,
+            int routeLevel)
+        {
             growthRouteLabel = routeLabel ?? string.Empty;
             growthRouteEffectLabel = effectLabel ?? string.Empty;
             growthRouteSpecializationCount = Mathf.Max(0, specializationCount);
+            growthRouteLevel = Mathf.Max(0, routeLevel);
         }
 
         public static void EndRun(RunEndReason reason, int finalTrust = -1, int finalAffection = -1)
@@ -134,6 +148,7 @@ namespace AICompanionRoguelike.Roguelike
 
             IsRunActive = false;
             LastEndReason = reason;
+            AwardMetaProgression(reason);
             LastSummary = CreateSummary(reason, finalTrust, finalAffection);
 
             Debug.Log($"Run session #{CurrentRunId} ended. Reason: {reason}");
@@ -157,6 +172,25 @@ namespace AICompanionRoguelike.Roguelike
             growthRouteLabel = string.Empty;
             growthRouteEffectLabel = string.Empty;
             growthRouteSpecializationCount = 0;
+            growthRouteLevel = 0;
+            metaFragmentsEarned = 0;
+            metaFragmentsTotal = MetaProgressionState.CoreFragments;
+        }
+
+        private static void AwardMetaProgression(RunEndReason reason)
+        {
+            metaFragmentsEarned = MetaProgressionRewardRules.CalculateCoreFragments(
+                reason,
+                currentRoomsCleared,
+                growthRouteLevel,
+                growthRouteSpecializationCount);
+
+            if (metaFragmentsEarned > 0)
+            {
+                MetaProgressionState.AddCoreFragments(metaFragmentsEarned);
+            }
+
+            metaFragmentsTotal = MetaProgressionState.CoreFragments;
         }
 
         private static RunSessionSummary CreateSummary(RunEndReason reason, int finalTrust, int finalAffection)
@@ -180,7 +214,10 @@ namespace AICompanionRoguelike.Roguelike
                 currentRouteModifiers.ToArray(),
                 growthRouteLabel,
                 growthRouteEffectLabel,
-                growthRouteSpecializationCount);
+                growthRouteSpecializationCount,
+                growthRouteLevel,
+                metaFragmentsEarned,
+                metaFragmentsTotal);
         }
     }
 }

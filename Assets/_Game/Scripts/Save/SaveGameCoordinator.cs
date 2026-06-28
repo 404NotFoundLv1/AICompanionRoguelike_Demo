@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Progression;
 using UnityEngine;
 
 namespace AICompanionRoguelike.Save
@@ -92,6 +93,7 @@ namespace AICompanionRoguelike.Save
                     : new GameSaveService(new JsonGameSaveStore(DefaultSavePath));
                 bool deleted = activeService.Delete();
                 CompanionRelationshipState.Clear();
+                MetaProgressionState.Clear();
                 PublishStatus(deleted ? "Save data cleared" : "No save data to clear");
                 return deleted;
             }
