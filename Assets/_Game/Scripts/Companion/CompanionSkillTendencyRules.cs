@@ -40,6 +40,66 @@ namespace AICompanionRoguelike.Companion
             };
         }
 
+        public static string GetRunLaunchLine(CompanionSkillTendency tendency)
+        {
+            switch (tendency)
+            {
+                case CompanionSkillTendency.Guardian:
+                    return "AI: Guardian tactic online. First fight plan: I guard early so you can reset safely.";
+                case CompanionSkillTendency.Suppressor:
+                    return "AI: Suppressor tactic online. First fight plan: I control dangerous targets before they crowd you.";
+                case CompanionSkillTendency.Link:
+                    return "AI: Link tactic online. First fight plan: I will call QTE windows faster.";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static string GetRunFeedbackLine(CompanionSkillTendency tendency)
+        {
+            switch (tendency)
+            {
+                case CompanionSkillTendency.Guardian:
+                    return "AI Tactic: Guardian - first fight favors safer guard support.";
+                case CompanionSkillTendency.Suppressor:
+                    return "AI Tactic: Suppressor - first fight favors enemy control.";
+                case CompanionSkillTendency.Link:
+                    return "AI Tactic: Link - first fight favors faster QTE support.";
+                default:
+                    return "AI Tactic: not selected - choose a tactic from home or the build panel.";
+            }
+        }
+
+        public static string GetRunClearRewardLine(CompanionSkillTendency tendency)
+        {
+            switch (tendency)
+            {
+                case CompanionSkillTendency.Guardian:
+                    return "Guardian tactic active: later Build rewards can deepen guard support.";
+                case CompanionSkillTendency.Suppressor:
+                    return "Suppressor tactic active: later Build rewards can deepen enemy control.";
+                case CompanionSkillTendency.Link:
+                    return "Link tactic active: later Build rewards can deepen QTE support.";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        public static string GetStatusPlanLine(CompanionSkillTendency tendency)
+        {
+            switch (tendency)
+            {
+                case CompanionSkillTendency.Guardian:
+                    return "AI Tactic Plan: Guardian | first fight guard support";
+                case CompanionSkillTendency.Suppressor:
+                    return "AI Tactic Plan: Suppressor | first fight enemy control";
+                case CompanionSkillTendency.Link:
+                    return "AI Tactic Plan: Link | first fight faster QTE calls";
+                default:
+                    return "AI Tactic Plan: choose before committing to this run";
+            }
+        }
+
         public static string GetBuildRewardTitle(CompanionSkillTendency tendency)
         {
             int nextLevel = CompanionRunBuildState.GetUpgradeLevel(tendency) + 1;

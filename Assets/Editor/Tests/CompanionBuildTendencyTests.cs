@@ -163,6 +163,81 @@ namespace AICompanionRoguelike.Tests
         }
 
         [Test]
+        public void RunLaunchLinesNameEachTacticAndFirstFightEffect()
+        {
+            string guardianLine = BuildRunLaunchLine("Guardian");
+            string suppressorLine = BuildRunLaunchLine("Suppressor");
+            string linkLine = BuildRunLaunchLine("Link");
+
+            Assert.That(guardianLine, Does.Contain("Guardian"));
+            Assert.That(guardianLine, Does.Contain("guard"));
+            Assert.That(suppressorLine, Does.Contain("Suppressor"));
+            Assert.That(suppressorLine, Does.Contain("control"));
+            Assert.That(linkLine, Does.Contain("Link"));
+            Assert.That(linkLine, Does.Contain("QTE"));
+        }
+
+        [Test]
+        public void FirstCombatRoomSpeaksSelectedTacticLaunchLine()
+        {
+            GameObject roomObject = new GameObject("FirstCombatTacticRoomTest");
+            GameObject companionObject = new GameObject("FirstCombatTacticCompanionTest");
+
+            try
+            {
+                SetCurrentTendency("Link");
+
+                RoomManager roomManager = roomObject.AddComponent<RoomManager>();
+                WritePrivateField(roomManager, "battleEnemyCount", 0);
+                WritePrivateField(roomManager, "logRoomMessages", false);
+
+                CompanionRelationship relationship = companionObject.AddComponent<CompanionRelationship>();
+                relationship.SetRelationshipSnapshot(
+                    50,
+                    50,
+                    Array.Empty<RelationshipMemoryTagScore>(),
+                    updateSessionState: false);
+                CompanionSpeechBubbleUI speechBubble = companionObject.AddComponent<CompanionSpeechBubbleUI>();
+                CompanionCombatDialogueController dialogue = companionObject.AddComponent<CompanionCombatDialogueController>();
+                WritePrivateField(dialogue, "roomManager", roomManager);
+                Invoke(dialogue, "OnEnable");
+
+                roomManager.EnterRoom(RoomType.BattleRoom, 1);
+                string message = speechBubble.CurrentMessage ?? string.Empty;
+
+                Assert.That(message, Does.Contain("Link"));
+                Assert.That(message, Does.Contain("QTE"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(companionObject);
+                UnityEngine.Object.DestroyImmediate(roomObject);
+            }
+        }
+
+        [Test]
+        public void StatusPanelTacticPlanLineReadsSelectedTendency()
+        {
+            GameObject uiObject = new GameObject("StatusTacticPlanLineTest");
+
+            try
+            {
+                SetCurrentTendency("Suppressor");
+                StatusFeedbackUI statusUI = uiObject.AddComponent<StatusFeedbackUI>();
+
+                string line = (string)Invoke(statusUI, "BuildCompanionTacticPlanLine");
+
+                Assert.That(line, Does.Contain("AI Tactic Plan"));
+                Assert.That(line, Does.Contain("Suppressor"));
+                Assert.That(line, Does.Contain("first fight"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(uiObject);
+            }
+        }
+
+        [Test]
         public void GuardianGuardActivationSpeaksBuildSpecificFeedback()
         {
             GameObject playerObject = new GameObject("PlayerGuardianBuildFeedbackTest");
@@ -340,6 +415,14 @@ namespace AICompanionRoguelike.Tests
             Type rulesType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionSkillTendencyRules");
             MethodInfo method = rulesType.GetMethod("GetHudSummaryLine", BindingFlags.Public | BindingFlags.Static);
             Assert.NotNull(method, "CompanionSkillTendencyRules should expose GetHudSummaryLine.");
+            return (string)method.Invoke(null, new[] { ParseTendency(tendencyName) });
+        }
+
+        private static string BuildRunLaunchLine(string tendencyName)
+        {
+            Type rulesType = RequireRuntimeType("AICompanionRoguelike.Companion.CompanionSkillTendencyRules");
+            MethodInfo method = rulesType.GetMethod("GetRunLaunchLine", BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(method, "CompanionSkillTendencyRules should expose GetRunLaunchLine.");
             return (string)method.Invoke(null, new[] { ParseTendency(tendencyName) });
         }
 

@@ -61,7 +61,7 @@ namespace AICompanionRoguelike.Roguelike
 
         [Header("Room Feedback")]
         [SerializeField] private bool showRoomFeedbackPanel = true;
-        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 560f, 126f);
+        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 640f, 156f);
 
         [Header("Rewards")]
         [SerializeField] private bool useRoomRewards = true;
@@ -1242,11 +1242,13 @@ namespace AICompanionRoguelike.Roguelike
             {
                 case RoomType.BattleRoom:
                     return AppendModifierFeedback(
-                        $"Combat Started - Battle Room: Enemy Types Melee/Ranged. Read each enemy warning, evade Melee lunges, and dodge visible projectiles, then clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        AppendTacticFeedback(
+                            $"Combat Started - Battle Room: Enemy Types Melee/Ranged. Read each enemy warning, evade Melee lunges, and dodge visible projectiles, then clear enemies for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options."),
                         modifierLine);
                 case RoomType.EliteRoom:
                     return AppendModifierFeedback(
-                        $"Combat Started - Elite Room: Enemy Types Guard/Ranged. Blocked frontal hits deal less damage; punish the Guard opening after it attacks for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
+                        AppendTacticFeedback(
+                            $"Combat Started - Elite Room: Enemy Types Guard/Ranged. Blocked frontal hits deal less damage; punish the Guard opening after it attacks for {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options."),
                         modifierLine);
                 case RoomType.SafeRoom:
                     return AppendModifierFeedback($"Safe Room: restored {restoredHealth:0} HP. No enemies here.", modifierLine);
@@ -1255,7 +1257,7 @@ namespace AICompanionRoguelike.Roguelike
                         $"Supply Room: no enemies. Choose from {GetRewardChoiceTargetCount(roomType, roomModifier, BuildRewardCandidateList().Count)} reward options.",
                         modifierLine);
                 case RoomType.BossRoom:
-                    return "Boss Room: final challenge. Defeat the boss to complete the run.";
+                    return AppendTacticFeedback("Boss Room: final challenge. Defeat the boss to complete the run.");
                 default:
                     return AppendModifierFeedback($"{roomType}: scout ahead.", modifierLine);
             }
@@ -1277,6 +1279,14 @@ namespace AICompanionRoguelike.Roguelike
                 : $"{baseMessage} Modifier {modifierLine}";
         }
 
+        private static string AppendTacticFeedback(string baseMessage)
+        {
+            string tacticLine = CompanionSkillTendencyRules.GetRunFeedbackLine(CompanionRunBuildState.CurrentTendency);
+            return string.IsNullOrWhiteSpace(tacticLine)
+                ? baseMessage
+                : $"{baseMessage} {tacticLine}";
+        }
+
         private string BuildRoomClearedFeedbackMessage(RoomType roomType, int roomNumber)
         {
             if (ShouldCompleteRun(roomNumber))
@@ -1291,12 +1301,21 @@ namespace AICompanionRoguelike.Roguelike
 
             if (ShouldOfferReward(roomType))
             {
-                return $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.";
+                return AppendTacticClearFeedback(
+                    $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.");
             }
 
             return useRoomChoicePortal
-                ? $"Room Clear - room #{roomNumber} cleared. Find the next-room portal to choose a route."
-                : $"Room Clear - room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.";
+                ? AppendTacticClearFeedback($"Room Clear - room #{roomNumber} cleared. Find the next-room portal to choose a route.")
+                : AppendTacticClearFeedback($"Room Clear - room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.");
+        }
+
+        private static string AppendTacticClearFeedback(string baseMessage)
+        {
+            string tacticLine = CompanionSkillTendencyRules.GetRunClearRewardLine(CompanionRunBuildState.CurrentTendency);
+            return string.IsNullOrWhiteSpace(tacticLine)
+                ? baseMessage
+                : $"{baseMessage} {tacticLine}";
         }
 
         private static bool ShouldShowCombatClearFeedback(RoomType roomType)

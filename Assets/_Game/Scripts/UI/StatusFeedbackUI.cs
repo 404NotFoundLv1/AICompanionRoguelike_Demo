@@ -181,7 +181,7 @@ namespace AICompanionRoguelike.UI
         private void DrawStatusPanel()
         {
             Rect effectivePanelRect = panelRect;
-            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 276f);
+            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 300f);
             GUILayout.BeginArea(effectivePanelRect, GUI.skin.box);
             GUILayout.Label("Run Status");
             GUILayout.Space(4f);
@@ -194,6 +194,7 @@ namespace AICompanionRoguelike.UI
             GUILayout.Label(BuildRelationshipLine());
             GUILayout.Label(BuildMemoryLine());
             GUILayout.Label(BuildCompanionBuildLine());
+            GUILayout.Label(BuildCompanionTacticPlanLine());
             GUILayout.Label(BuildTacticalSupportLine());
 
             if (branchEventRoomController != null && branchEventRoomController.IsLoadingBranchScene)
@@ -298,6 +299,14 @@ namespace AICompanionRoguelike.UI
                 ? tacticalSupport.CurrentTendency
                 : CompanionRunBuildState.CurrentTendency;
             return CompanionSkillTendencyRules.GetHudSummaryLine(tendency);
+        }
+
+        private string BuildCompanionTacticPlanLine()
+        {
+            CompanionSkillTendency tendency = tacticalSupport != null
+                ? tacticalSupport.CurrentTendency
+                : CompanionRunBuildState.CurrentTendency;
+            return CompanionSkillTendencyRules.GetStatusPlanLine(tendency);
         }
 
         private void DrawToast()

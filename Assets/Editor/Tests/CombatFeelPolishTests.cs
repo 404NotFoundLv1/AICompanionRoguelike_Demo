@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using AICompanionRoguelike.Companion;
 using AICompanionRoguelike.Combat;
 using AICompanionRoguelike.Enemy;
 using AICompanionRoguelike.Roguelike;
@@ -105,6 +106,41 @@ namespace AICompanionRoguelike.Tests
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab);
+                UnityEngine.Object.DestroyImmediate(runObject);
+            }
+        }
+
+        [Test]
+        public void BattleRoomFeedbackEchoesSelectedTacticAndRewardInfluence()
+        {
+            GameObject runObject = new GameObject("CombatTacticFeedbackRunManagerTest");
+            GameObject enemyPrefab = CreateEnemyPrefab();
+
+            try
+            {
+                CompanionRunBuildState.SetTendency(CompanionSkillTendency.Link);
+
+                RoomManager roomManager = runObject.AddComponent<RoomManager>();
+                WritePrivateField(roomManager, "enemyPrefab", enemyPrefab);
+                WritePrivateField(roomManager, "logRoomMessages", false);
+                RunManager runManager = runObject.AddComponent<RunManager>();
+                WritePrivateField(runManager, "logRunMessages", false);
+
+                Invoke(runManager, "AdvanceToRoom", RoomType.BattleRoom);
+
+                Assert.That(runManager.LastRoomFeedbackMessage, Does.Contain("AI Tactic"));
+                Assert.That(runManager.LastRoomFeedbackMessage, Does.Contain("Link"));
+                Assert.That(runManager.LastRoomFeedbackMessage, Does.Contain("QTE"));
+
+                roomManager.ForceClearCurrentRoom();
+
+                Assert.That(runManager.LastRoomFeedbackMessage, Does.Contain("Link"));
+                Assert.That(runManager.LastRoomFeedbackMessage, Does.Contain("reward"));
+            }
+            finally
+            {
+                CompanionRunBuildState.Reset();
                 UnityEngine.Object.DestroyImmediate(enemyPrefab);
                 UnityEngine.Object.DestroyImmediate(runObject);
             }

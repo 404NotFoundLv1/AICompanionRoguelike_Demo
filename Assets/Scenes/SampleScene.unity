@@ -415,8 +415,8 @@ MonoBehaviour:
     serializedVersion: 2
     x: 360
     y: 16
-    width: 560
-    height: 126
+    width: 640
+    height: 156
   useRoomRewards: 1
   rewardChoiceCount: 3
   selectableRewards: 0000000001000000020000000300000004000000

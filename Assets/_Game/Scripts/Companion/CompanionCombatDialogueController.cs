@@ -37,6 +37,7 @@ namespace AICompanionRoguelike.Companion
         private PlayerCounterplayFeedback subscribedCounterplayFeedback;
         private float nextAllowedDialogueTime;
         private float nextLowHealthDialogueTime;
+        private bool hasSpokenFirstRoomTactic;
 
         private void Reset()
         {
@@ -424,6 +425,17 @@ namespace AICompanionRoguelike.Companion
             if (roomType == RoomType.BranchEventRoom)
             {
                 return;
+            }
+
+            if (!hasSpokenFirstRoomTactic && roomNumber <= 1)
+            {
+                hasSpokenFirstRoomTactic = true;
+                if (TryShowLine(
+                        CompanionSkillTendencyRules.GetRunLaunchLine(CompanionRunBuildState.CurrentTendency),
+                        6))
+                {
+                    return;
+                }
             }
 
             TrySpeak(CompanionDialogueEventType.RoomStarted, 1);
