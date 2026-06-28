@@ -108,6 +108,11 @@ namespace AICompanionRoguelike.Roguelike
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(8);
+        private int playerGrowthCount;
+        private int companionGrowthCount;
+        private int counterplayGrowthCount;
+        private int survivalGrowthCount;
+        private int buildGrowthCount;
 
         public static event Action<RunManager> AnyRunStarted;
         public event Action<RunManager> RunStarted;
@@ -135,6 +140,7 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
+        public string CurrentGrowthSummaryLabel => BuildCurrentGrowthSummaryLabel();
         public string LastRoomFeedbackMessage => lastRoomFeedbackMessage;
         public string LastRoomModifierFeedbackTitle => lastRoomModifierFeedbackTitle;
         public string LastRoomModifierFeedbackLine => lastRoomModifierFeedbackLine;
@@ -241,6 +247,7 @@ namespace AICompanionRoguelike.Roguelike
             pendingSelectedRoomModifier = RoomModifierType.None;
             currentRouteHistory.Clear();
             currentRouteModifierHistory.Clear();
+            ResetRewardGrowthCounts();
             ClearRewardChoices();
             ClearPreparedRoomChoices();
 
@@ -550,7 +557,22 @@ namespace AICompanionRoguelike.Roguelike
                 candidates.Remove(buildRewardType.Value);
             }
 
-            while (currentRewardChoices.Count < targetCount)
+            if (targetCount >= 2)
+            {
+                TryAddRewardChoiceFromCategories(
+                    candidates,
+                    targetCount,
+                    RunRewardCategory.Player,
+                    RunRewardCategory.Survival);
+                TryAddRewardChoiceFromCategory(candidates, RunRewardCategory.Counterplay, targetCount);
+            }
+
+            if (targetCount >= 3)
+            {
+                TryAddRewardChoiceFromCategory(candidates, RunRewardCategory.Companion, targetCount);
+            }
+
+            while (currentRewardChoices.Count < targetCount && candidates.Count > 0)
             {
                 int selectedIndex = UnityEngine.Random.Range(0, candidates.Count);
                 currentRewardChoices.Add(CreateRewardChoice(candidates[selectedIndex]));
@@ -642,6 +664,64 @@ namespace AICompanionRoguelike.Roguelike
 
         private RunRewardChoice CreateRewardChoice(RunRewardType rewardType)
         {
+            RunRewardChoice legacyChoice = CreateLegacyRewardChoice(rewardType);
+            return new RunRewardChoice(
+                rewardType,
+                legacyChoice.Title,
+                legacyChoice.Description,
+                GetRewardCategory(rewardType),
+                BuildRewardPreviewLine(rewardType),
+                GetRewardGrowthTag(rewardType));
+        }
+
+        private bool TryAddRewardChoiceFromCategories(
+            List<RunRewardType> candidates,
+            int targetCount,
+            params RunRewardCategory[] categories)
+        {
+            for (int i = 0; i < categories.Length; i++)
+            {
+                if (TryAddRewardChoiceFromCategory(candidates, categories[i], targetCount))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryAddRewardChoiceFromCategory(
+            List<RunRewardType> candidates,
+            RunRewardCategory category,
+            int targetCount)
+        {
+            if (currentRewardChoices.Count >= targetCount || candidates.Count == 0)
+            {
+                return false;
+            }
+
+            List<int> matchingIndexes = new List<int>(candidates.Count);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (GetRewardCategory(candidates[i]) == category)
+                {
+                    matchingIndexes.Add(i);
+                }
+            }
+
+            if (matchingIndexes.Count == 0)
+            {
+                return false;
+            }
+
+            int selectedIndex = matchingIndexes[UnityEngine.Random.Range(0, matchingIndexes.Count)];
+            currentRewardChoices.Add(CreateRewardChoice(candidates[selectedIndex]));
+            candidates.RemoveAt(selectedIndex);
+            return true;
+        }
+
+        private RunRewardChoice CreateLegacyRewardChoice(RunRewardType rewardType)
+        {
             switch (rewardType)
             {
                 case RunRewardType.MaxHealth:
@@ -694,6 +774,162 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        private RunRewardCategory GetRewardCategory(RunRewardType rewardType)
+        {
+            switch (rewardType)
+            {
+                case RunRewardType.MaxHealth:
+                case RunRewardType.BondRescueHealth:
+                    return RunRewardCategory.Survival;
+                case RunRewardType.CompanionCooldown:
+                    return RunRewardCategory.Companion;
+                case RunRewardType.DashCooldown:
+                case RunRewardType.RecoveryWindow:
+                case RunRewardType.DodgeDamageBoost:
+                case RunRewardType.GuardOpeningDamage:
+                    return RunRewardCategory.Counterplay;
+                case RunRewardType.GuardianBuildUpgrade:
+                case RunRewardType.SuppressorBuildUpgrade:
+                case RunRewardType.LinkBuildUpgrade:
+                    return RunRewardCategory.Build;
+                default:
+                    return RunRewardCategory.Player;
+            }
+        }
+
+        private string GetRewardGrowthTag(RunRewardType rewardType)
+        {
+            switch (rewardType)
+            {
+                case RunRewardType.MaxHealth:
+                    return "survival-max-health";
+                case RunRewardType.PlayerDamage:
+                    return "player-damage";
+                case RunRewardType.MoveSpeed:
+                    return "player-move-speed";
+                case RunRewardType.CompanionCooldown:
+                    return "ai-support-cooldown";
+                case RunRewardType.BondRescueHealth:
+                    return "survival-bond-rescue";
+                case RunRewardType.DashCooldown:
+                    return "counterplay-dash-cooldown";
+                case RunRewardType.RecoveryWindow:
+                    return "counterplay-recovery-window";
+                case RunRewardType.DodgeDamageBoost:
+                    return "counterplay-dodge-strike";
+                case RunRewardType.GuardOpeningDamage:
+                    return "counterplay-guard-opening";
+                case RunRewardType.GuardianBuildUpgrade:
+                    return "build-guardian";
+                case RunRewardType.SuppressorBuildUpgrade:
+                    return "build-suppressor";
+                case RunRewardType.LinkBuildUpgrade:
+                    return "build-link";
+                default:
+                    return "reward";
+            }
+        }
+
+        private string BuildRewardPreviewLine(RunRewardType rewardType)
+        {
+            GameObject player = GameObject.Find("Player");
+            switch (rewardType)
+            {
+                case RunRewardType.MaxHealth:
+                {
+                    HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
+                    return health != null
+                        ? FormatStatChange("Max HP", health.MaxHealth, health.MaxHealth + maxHealthReward, "0")
+                        : $"Max HP: +{maxHealthReward:0}";
+                }
+                case RunRewardType.PlayerDamage:
+                {
+                    PlayerCombat2D combat = player != null ? player.GetComponent<PlayerCombat2D>() : null;
+                    return combat != null
+                        ? FormatStatChange("Damage", combat.Damage, combat.Damage * playerDamageRewardMultiplier, "0.#")
+                        : $"Damage: +{(playerDamageRewardMultiplier - 1f) * 100f:0}%";
+                }
+                case RunRewardType.MoveSpeed:
+                {
+                    PlayerMovement2D movement = player != null ? player.GetComponent<PlayerMovement2D>() : null;
+                    return movement != null
+                        ? FormatStatChange("Move Speed", movement.MoveSpeed, movement.MoveSpeed * moveSpeedRewardMultiplier, "0.0")
+                        : $"Move Speed: +{(moveSpeedRewardMultiplier - 1f) * 100f:0}%";
+                }
+                case RunRewardType.CompanionCooldown:
+                {
+                    CompanionCombat companionCombat = FindAnyObjectByType<CompanionCombat>();
+                    return companionCombat != null
+                        ? FormatStatChange("AI Cooldown", companionCombat.Cooldown, companionCombat.Cooldown * companionCooldownRewardMultiplier, "0.00", "s")
+                        : $"AI Cooldown: -{(1f - companionCooldownRewardMultiplier) * 100f:0}%";
+                }
+                case RunRewardType.BondRescueHealth:
+                {
+                    BondRescueSystem rescueSystem = player != null ? player.GetComponent<BondRescueSystem>() : null;
+                    return rescueSystem != null
+                        ? FormatStatChange("Rescue HP", rescueSystem.RescueHealth, rescueSystem.RescueHealth + bondRescueHealthReward, "0")
+                        : $"Rescue HP: +{bondRescueHealthReward:0}";
+                }
+                case RunRewardType.DashCooldown:
+                {
+                    PlayerMovement2D movement = player != null ? player.GetComponent<PlayerMovement2D>() : null;
+                    return movement != null
+                        ? FormatStatChange("Dash CD", movement.DashCooldown, movement.DashCooldown * counterplayDashCooldownMultiplier, "0.00", "s")
+                        : $"Dash CD: -{(1f - counterplayDashCooldownMultiplier) * 100f:0}%";
+                }
+                case RunRewardType.RecoveryWindow:
+                {
+                    PlayerCounterplayFeedback counterplay = player != null ? player.GetComponent<PlayerCounterplayFeedback>() : null;
+                    return counterplay != null
+                        ? FormatStatChange(
+                            "Recovery",
+                            counterplay.PostHitInvulnerabilityDuration,
+                            counterplay.PostHitInvulnerabilityDuration + counterplayRecoveryDurationBonus,
+                            "0.00",
+                            "s")
+                        : $"Recovery: +{counterplayRecoveryDurationBonus:0.00}s";
+                }
+                case RunRewardType.DodgeDamageBoost:
+                {
+                    PlayerCounterplayFeedback counterplay = player != null ? player.GetComponent<PlayerCounterplayFeedback>() : null;
+                    float currentMultiplier = counterplay != null ? counterplay.DodgeDamageMultiplier : 1f;
+                    float currentDuration = counterplay != null ? counterplay.DodgeDamageBoostDuration : 0f;
+                    float nextDuration = Mathf.Max(currentDuration, counterplayDodgeBoostDuration);
+                    return $"Dodge Strike: x{currentMultiplier:0.##} -> x{currentMultiplier * counterplayDodgeDamageMultiplier:0.##} / {nextDuration:0.0}s";
+                }
+                case RunRewardType.GuardOpeningDamage:
+                {
+                    PlayerCounterplayFeedback counterplay = player != null ? player.GetComponent<PlayerCounterplayFeedback>() : null;
+                    float currentMultiplier = counterplay != null ? counterplay.GuardOpeningDamageMultiplier : 1f;
+                    return $"Guard Opening: x{currentMultiplier:0.##} -> x{currentMultiplier * counterplayGuardOpeningDamageMultiplier:0.##}";
+                }
+                case RunRewardType.GuardianBuildUpgrade:
+                    return BuildBuildLevelPreview(CompanionSkillTendency.Guardian);
+                case RunRewardType.SuppressorBuildUpgrade:
+                    return BuildBuildLevelPreview(CompanionSkillTendency.Suppressor);
+                case RunRewardType.LinkBuildUpgrade:
+                    return BuildBuildLevelPreview(CompanionSkillTendency.Link);
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static string FormatStatChange(
+            string label,
+            float before,
+            float after,
+            string numberFormat,
+            string suffix = "")
+        {
+            return $"{label}: {before.ToString(numberFormat)}{suffix} -> {after.ToString(numberFormat)}{suffix}";
+        }
+
+        private static string BuildBuildLevelPreview(CompanionSkillTendency tendency)
+        {
+            int currentLevel = CompanionRunBuildState.GetUpgradeLevel(tendency);
+            return $"{tendency} Build: Lv{currentLevel} -> Lv{currentLevel + 1}";
+        }
+
         private void ApplyReward(RunRewardType rewardType)
         {
             GameObject player = GameObject.Find("Player");
@@ -742,6 +978,8 @@ namespace AICompanionRoguelike.Roguelike
             {
                 ShowCompanionCounterplayRewardFeedback(rewardType);
             }
+
+            RecordRewardGrowth(GetRewardCategory(rewardType));
         }
 
         private static RunRewardType? GetCurrentBuildRewardType()
@@ -1063,6 +1301,42 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             return counterplay;
+        }
+
+        private void ResetRewardGrowthCounts()
+        {
+            playerGrowthCount = 0;
+            companionGrowthCount = 0;
+            counterplayGrowthCount = 0;
+            survivalGrowthCount = 0;
+            buildGrowthCount = 0;
+        }
+
+        private void RecordRewardGrowth(RunRewardCategory category)
+        {
+            switch (category)
+            {
+                case RunRewardCategory.Player:
+                    playerGrowthCount++;
+                    break;
+                case RunRewardCategory.Companion:
+                    companionGrowthCount++;
+                    break;
+                case RunRewardCategory.Counterplay:
+                    counterplayGrowthCount++;
+                    break;
+                case RunRewardCategory.Survival:
+                    survivalGrowthCount++;
+                    break;
+                case RunRewardCategory.Build:
+                    buildGrowthCount++;
+                    break;
+            }
+        }
+
+        private string BuildCurrentGrowthSummaryLabel()
+        {
+            return $"Growth: Player {playerGrowthCount} | AI {companionGrowthCount} | Counterplay {counterplayGrowthCount} | Survival {survivalGrowthCount} | Build {buildGrowthCount}";
         }
 
         private void RecordRouteEntry(RoomType roomType, int roomNumber, RoomModifierType roomModifier)

@@ -76,9 +76,14 @@ namespace AICompanionRoguelike.UI
             for (int i = 0; i < rewards.Count; i++)
             {
                 RunRewardChoice reward = rewards[i];
-                if (GUILayout.Button($"[{i + 1}] {reward.Title}"))
+                if (GUILayout.Button($"[{i + 1}] [{reward.CategoryLabel}] {reward.Title}"))
                 {
                     runManager.SelectReward(i);
+                }
+
+                if (!string.IsNullOrWhiteSpace(reward.PreviewLine))
+                {
+                    GUILayout.Label(reward.PreviewLine);
                 }
 
                 GUILayout.Label(reward.Description);

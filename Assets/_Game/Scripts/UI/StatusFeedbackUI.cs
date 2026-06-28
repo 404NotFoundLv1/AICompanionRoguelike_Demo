@@ -16,6 +16,7 @@ namespace AICompanionRoguelike.UI
         [SerializeField] private CompanionRelationship companionRelationship;
         [SerializeField] private CompanionTacticalSupport tacticalSupport;
         [SerializeField] private BranchEventRoomController branchEventRoomController;
+        [SerializeField] private RunManager runManager;
 
         [Header("Layout")]
         [SerializeField] private Rect panelRect = new Rect(16f, 16f, 330f, 210f);
@@ -52,6 +53,7 @@ namespace AICompanionRoguelike.UI
             if (playerHealth == null
                 || companionRelationship == null
                 || branchEventRoomController == null
+                || runManager == null
                 || (playerCounterplayFeedback == null && playerHealth != null))
             {
                 ResolveReferences();
@@ -98,6 +100,11 @@ namespace AICompanionRoguelike.UI
             if (branchEventRoomController == null)
             {
                 branchEventRoomController = FindAnyObjectByType<BranchEventRoomController>();
+            }
+
+            if (runManager == null)
+            {
+                runManager = FindAnyObjectByType<RunManager>();
             }
         }
 
@@ -174,13 +181,14 @@ namespace AICompanionRoguelike.UI
         private void DrawStatusPanel()
         {
             Rect effectivePanelRect = panelRect;
-            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 236f);
+            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 256f);
             GUILayout.BeginArea(effectivePanelRect, GUI.skin.box);
             GUILayout.Label("Run Status");
             GUILayout.Space(4f);
             GUILayout.Label(BuildPlayerHealthLine());
             GUILayout.Label(BuildChallengeBuffLine());
             GUILayout.Label(BuildCounterplayLine());
+            GUILayout.Label(BuildRunGrowthLine());
             GUILayout.Space(4f);
             GUILayout.Label(BuildRelationshipLine());
             GUILayout.Label(BuildMemoryLine());
@@ -228,6 +236,11 @@ namespace AICompanionRoguelike.UI
             return playerCounterplayFeedback != null
                 ? playerCounterplayFeedback.GetStatusLabel()
                 : "Counterplay: --";
+        }
+
+        private string BuildRunGrowthLine()
+        {
+            return runManager != null ? runManager.CurrentGrowthSummaryLabel : "Growth: --";
         }
 
         private string BuildRelationshipLine()
