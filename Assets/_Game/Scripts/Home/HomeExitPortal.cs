@@ -1,4 +1,7 @@
 using AICompanionRoguelike.Character;
+using AICompanionRoguelike.Companion;
+using AICompanionRoguelike.Memory;
+using AICompanionRoguelike.Progression;
 using AICompanionRoguelike.Roguelike;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,18 +14,24 @@ namespace AICompanionRoguelike.Home
     {
         [SerializeField] private string battleScenePath = "Assets/Scenes/SampleScene.unity";
         [SerializeField] private Key interactKey = Key.E;
+        [SerializeField] private Key cancelKey = Key.Escape;
+        [SerializeField] private Key alternateCancelKey = Key.Q;
         [SerializeField] private bool requireConfirmInput = true;
         [SerializeField] private bool showInteractionPrompt = true;
-        [SerializeField] private string promptText = "按 E 开始探索";
+        [SerializeField] private string promptText = "Press E to prepare expedition";
+        [SerializeField] private Rect preparationPanelRect = new Rect(0f, 72f, 560f, 250f);
         [SerializeField] private Color readyColor = new Color(0.25f, 1f, 0.75f, 1f);
         [SerializeField] private bool logTransition = true;
 
         private bool isTransitioning;
         private bool playerInRange;
+        private bool isPreparationOpen;
         private SpriteRenderer portalRenderer;
         private Color idleColor;
 
         public bool IsPlayerInRange => playerInRange;
+        public bool IsPreparationOpen => isPreparationOpen;
+        public bool IsTransitioning => isTransitioning;
 
         private void Reset()
         {
@@ -44,9 +53,28 @@ namespace AICompanionRoguelike.Home
             }
 
             Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && interactKey != Key.None && keyboard[interactKey].wasPressedThisFrame)
+            if (keyboard == null)
             {
-                EnterBattle();
+                return;
+            }
+
+            if (isPreparationOpen
+                && (WasKeyPressed(keyboard, cancelKey) || WasKeyPressed(keyboard, alternateCancelKey)))
+            {
+                CancelPreparation();
+                return;
+            }
+
+            if (WasKeyPressed(keyboard, interactKey))
+            {
+                if (isPreparationOpen)
+                {
+                    ConfirmPreparation();
+                }
+                else
+                {
+                    OpenPreparationPanel();
+                }
             }
         }
 
@@ -79,7 +107,33 @@ namespace AICompanionRoguelike.Home
             }
 
             playerInRange = false;
+            CancelPreparation();
             RefreshPortalFeedback();
+        }
+
+        public void OpenPreparationPanel()
+        {
+            if (isTransitioning)
+            {
+                return;
+            }
+
+            isPreparationOpen = true;
+        }
+
+        public void CancelPreparation()
+        {
+            isPreparationOpen = false;
+        }
+
+        public void ConfirmPreparation()
+        {
+            if (!isPreparationOpen || isTransitioning)
+            {
+                return;
+            }
+
+            EnterBattle();
         }
 
         public void EnterBattle()
@@ -96,6 +150,7 @@ namespace AICompanionRoguelike.Home
             }
 
             isTransitioning = true;
+            isPreparationOpen = false;
             RunSessionState.StartRunFromHome(battleScenePath);
 
             if (logTransition)
@@ -123,10 +178,101 @@ namespace AICompanionRoguelike.Home
                 return;
             }
 
-            const float width = 260f;
+            if (isPreparationOpen)
+            {
+                DrawPreparationPanel();
+                return;
+            }
+
+            const float width = 280f;
             const float height = 54f;
             Rect rect = new Rect((Screen.width - width) * 0.5f, Screen.height - 120f, width, height);
             GUI.Box(rect, promptText);
+        }
+
+        private void DrawPreparationPanel()
+        {
+            Rect rect = HomeMetaUpgradeStation.GetClampedPromptRect(
+                GetCenteredPreparationRect(preparationPanelRect),
+                Screen.width,
+                Screen.height);
+
+            GUILayout.BeginArea(rect, GUI.skin.box);
+            string[] lines = BuildPreparationLines();
+            for (int i = 0; i < lines.Length; i++)
+            {
+                GUILayout.Label(lines[i]);
+            }
+
+            GUILayout.Space(8f);
+            GUILayout.Label($"[{FormatKey(interactKey)}] Confirm    [{FormatKey(cancelKey)}/{FormatKey(alternateCancelKey)}] Cancel");
+            GUILayout.EndArea();
+        }
+
+        public static string[] BuildPreparationLines()
+        {
+            return new[]
+            {
+                "Expedition Preparation",
+                BuildPermanentUpgradeLine(),
+                BuildCompanionReadinessLine(),
+                "Confirm to enter the next combat run."
+            };
+        }
+
+        public static string BuildPermanentUpgradeLine()
+        {
+            return $"Permanent Upgrades: HP Lv{MetaProgressionState.PlayerMaxHealthLevel} / Damage Lv{MetaProgressionState.PlayerDamageLevel} / AI Cooldown Lv{MetaProgressionState.CompanionCooldownLevel}";
+        }
+
+        public static string BuildCompanionReadinessLine()
+        {
+            if (!CompanionRelationshipState.HasState)
+            {
+                return $"AI Readiness: Bond unrecorded | {CompanionSkillTendencyRules.GetHudSummaryLine(CompanionRunBuildState.CurrentTendency)}";
+            }
+
+            CompanionRelationshipProfileSnapshot profile = CompanionRelationshipProfile.Evaluate(
+                CompanionRelationshipState.Trust,
+                CompanionRelationshipState.Affection,
+                CompanionRelationshipState.MemoryTags);
+            string memoryPart = profile.HasDominantMemory
+                ? $" | Memory {profile.DominantMemoryTag} x{profile.DominantMemoryScore}"
+                : " | Memory none";
+
+            return $"AI Readiness: {profile.Tier} | Trust {CompanionRelationshipState.Trust} | Affection {CompanionRelationshipState.Affection}{memoryPart} | {CompanionSkillTendencyRules.GetHudSummaryLine(CompanionRunBuildState.CurrentTendency)}";
+        }
+
+        private static Rect GetCenteredPreparationRect(Rect sourceRect)
+        {
+            float width = Mathf.Max(220f, sourceRect.width);
+            float x = sourceRect.x <= 0f ? (Screen.width - width) * 0.5f : sourceRect.x;
+            return new Rect(x, sourceRect.y, width, Mathf.Max(160f, sourceRect.height));
+        }
+
+        private static bool WasKeyPressed(Keyboard keyboard, Key key)
+        {
+            return key != Key.None && keyboard[key].wasPressedThisFrame;
+        }
+
+        private static string FormatKey(Key key)
+        {
+            if (key == Key.Digit1)
+            {
+                return "1";
+            }
+
+            if (key == Key.Digit2)
+            {
+                return "2";
+            }
+
+            if (key == Key.Digit3)
+            {
+                return "3";
+            }
+
+            return key.ToString();
         }
     }
 }
