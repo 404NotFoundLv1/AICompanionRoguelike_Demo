@@ -34,6 +34,10 @@ namespace AICompanionRoguelike.Companion
                     return "AI: Shield link is active. Take the opening.";
                 case CompanionDialogueEventType.BossSupportBlocked:
                     return "AI: I can warn you, but I cannot shield this one.";
+                case CompanionDialogueEventType.ProjectileDodged:
+                    return "AI: Good dodge. Dash through the projectile.";
+                case CompanionDialogueEventType.GuardOpening:
+                    return "AI: Guard opening. Hit now.";
                 default:
                     return BuildOpeningLine(profile);
             }

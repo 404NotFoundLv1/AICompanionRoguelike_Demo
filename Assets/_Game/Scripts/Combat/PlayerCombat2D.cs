@@ -24,6 +24,8 @@ namespace AICompanionRoguelike.Combat
         private Rigidbody2D body;
         private float cooldownTimer;
 
+        public event System.Action<PlayerCombat2D, HealthComponent, DamageInfo> TargetHit;
+
         public float Damage => damage;
         public float Cooldown => cooldown;
 
@@ -101,6 +103,13 @@ namespace AICompanionRoguelike.Combat
                 }
 
                 health.TakeDamage(damageInfo);
+                TargetHit?.Invoke(this, health, damageInfo);
+                PlayerCounterplayFeedback[] counterplayFeedbacks = GetComponents<PlayerCounterplayFeedback>();
+                for (int feedbackIndex = 0; feedbackIndex < counterplayFeedbacks.Length; feedbackIndex++)
+                {
+                    counterplayFeedbacks[feedbackIndex].ReportPlayerHitTarget(health, damageInfo);
+                }
+
                 Debug.Log($"Player hit {health.name} for {damageInfo.damage} damage. HP: {health.CurrentHealth}/{health.MaxHealth}", health);
             }
         }

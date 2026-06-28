@@ -14,6 +14,8 @@ namespace AICompanionRoguelike.Companion
         TacticalGuard,
         TacticalSuppression,
         BossSupportActivated,
-        BossSupportBlocked
+        BossSupportBlocked,
+        ProjectileDodged,
+        GuardOpening
     }
 }

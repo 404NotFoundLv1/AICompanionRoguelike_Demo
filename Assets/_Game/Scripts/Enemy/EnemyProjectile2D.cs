@@ -121,8 +121,15 @@ namespace AICompanionRoguelike.Enemy
                     targetHealth.transform.position,
                     hitRadius))
             {
+                float healthBeforeHit = targetHealth.CurrentHealth;
                 targetHealth.TakeDamage(new DamageInfo(damage, DamageSourceType.Enemy, sourceObject));
-                Resolve(true);
+                bool damageLanded = targetHealth.CurrentHealth < healthBeforeHit;
+                if (!damageLanded && targetHealth.TryGetComponent(out PlayerCounterplayFeedback counterplayFeedback))
+                {
+                    counterplayFeedback.ReportProjectileDodge();
+                }
+
+                Resolve(damageLanded);
                 return;
             }
 

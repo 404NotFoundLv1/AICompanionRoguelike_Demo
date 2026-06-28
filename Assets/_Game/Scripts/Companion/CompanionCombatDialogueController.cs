@@ -18,6 +18,7 @@ namespace AICompanionRoguelike.Companion
         [SerializeField] private CompanionSensor sensor;
         [SerializeField] private QTEManager qteManager;
         [SerializeField] private HealthComponent playerHealth;
+        [SerializeField] private PlayerCounterplayFeedback playerCounterplayFeedback;
         [SerializeField] private RoomManager roomManager;
 
         [Header("Timing")]
@@ -33,6 +34,7 @@ namespace AICompanionRoguelike.Companion
         private HealthComponent subscribedPlayerHealth;
         private RoomManager subscribedRoomManager;
         private CompanionSensor subscribedSensor;
+        private PlayerCounterplayFeedback subscribedCounterplayFeedback;
         private float nextAllowedDialogueTime;
         private float nextLowHealthDialogueTime;
 
@@ -51,6 +53,7 @@ namespace AICompanionRoguelike.Companion
             ResolveReferences();
             SubscribeToQteManager();
             SubscribeToPlayerHealth();
+            SubscribeToCounterplayFeedback();
             SubscribeToRoomManager();
             SubscribeToSensor();
             CompanionRunFeedback.FeedbackRaised += HandleRunFeedbackRaised;
@@ -61,6 +64,7 @@ namespace AICompanionRoguelike.Companion
             ResolveReferences();
             SubscribeToQteManager();
             SubscribeToPlayerHealth();
+            SubscribeToCounterplayFeedback();
             SubscribeToRoomManager();
             SubscribeToSensor();
         }
@@ -74,6 +78,7 @@ namespace AICompanionRoguelike.Companion
 
             SubscribeToQteManager();
             SubscribeToPlayerHealth();
+            SubscribeToCounterplayFeedback();
             SubscribeToRoomManager();
             SubscribeToSensor();
         }
@@ -82,6 +87,7 @@ namespace AICompanionRoguelike.Companion
         {
             UnsubscribeFromQteManager();
             UnsubscribeFromPlayerHealth();
+            UnsubscribeFromCounterplayFeedback();
             UnsubscribeFromRoomManager();
             UnsubscribeFromSensor();
             CompanionRunFeedback.FeedbackRaised -= HandleRunFeedbackRaised;
@@ -164,6 +170,11 @@ namespace AICompanionRoguelike.Companion
                 playerHealth = player != null ? player.GetComponent<HealthComponent>() : null;
             }
 
+            if (playerCounterplayFeedback == null && playerHealth != null)
+            {
+                playerCounterplayFeedback = playerHealth.GetComponent<PlayerCounterplayFeedback>();
+            }
+
             roomManager = roomManager != null ? roomManager : FindAnyObjectByType<RoomManager>();
         }
 
@@ -224,6 +235,34 @@ namespace AICompanionRoguelike.Companion
 
             subscribedPlayerHealth.Damaged -= HandlePlayerDamaged;
             subscribedPlayerHealth = null;
+        }
+
+        private void SubscribeToCounterplayFeedback()
+        {
+            if (playerCounterplayFeedback == subscribedCounterplayFeedback)
+            {
+                return;
+            }
+
+            UnsubscribeFromCounterplayFeedback();
+            if (playerCounterplayFeedback == null)
+            {
+                return;
+            }
+
+            subscribedCounterplayFeedback = playerCounterplayFeedback;
+            subscribedCounterplayFeedback.FeedbackIssued += HandleCounterplayFeedbackIssued;
+        }
+
+        private void UnsubscribeFromCounterplayFeedback()
+        {
+            if (subscribedCounterplayFeedback == null)
+            {
+                return;
+            }
+
+            subscribedCounterplayFeedback.FeedbackIssued -= HandleCounterplayFeedbackIssued;
+            subscribedCounterplayFeedback = null;
         }
 
         private void SubscribeToRoomManager()
@@ -362,6 +401,22 @@ namespace AICompanionRoguelike.Companion
             }
 
             TrySpeak(CompanionDialogueEventType.PlayerHit, 1);
+        }
+
+        private void HandleCounterplayFeedbackIssued(
+            PlayerCounterplayFeedback feedback,
+            PlayerCounterplayFeedbackKind kind,
+            string message)
+        {
+            switch (kind)
+            {
+                case PlayerCounterplayFeedbackKind.ProjectileDodge:
+                    TrySpeak(CompanionDialogueEventType.ProjectileDodged, 5);
+                    break;
+                case PlayerCounterplayFeedbackKind.GuardOpening:
+                    TrySpeak(CompanionDialogueEventType.GuardOpening, 5);
+                    break;
+            }
         }
 
         private void HandleRoomStarted(RoomManager manager, RoomType roomType, int roomNumber)
