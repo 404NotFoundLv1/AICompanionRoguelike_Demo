@@ -181,13 +181,14 @@ namespace AICompanionRoguelike.UI
         private void DrawStatusPanel()
         {
             Rect effectivePanelRect = panelRect;
-            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 256f);
+            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 276f);
             GUILayout.BeginArea(effectivePanelRect, GUI.skin.box);
             GUILayout.Label("Run Status");
             GUILayout.Space(4f);
             GUILayout.Label(BuildPlayerHealthLine());
             GUILayout.Label(BuildChallengeBuffLine());
             GUILayout.Label(BuildCounterplayLine());
+            GUILayout.Label(BuildRunGrowthRouteLine());
             GUILayout.Label(BuildRunGrowthLine());
             GUILayout.Space(4f);
             GUILayout.Label(BuildRelationshipLine());
@@ -241,6 +242,11 @@ namespace AICompanionRoguelike.UI
         private string BuildRunGrowthLine()
         {
             return runManager != null ? runManager.CurrentGrowthSummaryLabel : "Growth: --";
+        }
+
+        private string BuildRunGrowthRouteLine()
+        {
+            return runManager != null ? runManager.CurrentGrowthRouteLabel : "Growth Route: --";
         }
 
         private string BuildRelationshipLine()
