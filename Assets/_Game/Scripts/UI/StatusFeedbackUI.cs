@@ -12,6 +12,7 @@ namespace AICompanionRoguelike.UI
         [Header("References")]
         [SerializeField] private HealthComponent playerHealth;
         [SerializeField] private PlayerBranchChoiceBuff branchChoiceBuff;
+        [SerializeField] private PlayerCounterplayFeedback playerCounterplayFeedback;
         [SerializeField] private CompanionRelationship companionRelationship;
         [SerializeField] private CompanionTacticalSupport tacticalSupport;
         [SerializeField] private BranchEventRoomController branchEventRoomController;
@@ -48,7 +49,10 @@ namespace AICompanionRoguelike.UI
                 toastTimer = Mathf.Max(0f, toastTimer - Time.deltaTime);
             }
 
-            if (playerHealth == null || companionRelationship == null || branchEventRoomController == null)
+            if (playerHealth == null
+                || companionRelationship == null
+                || branchEventRoomController == null
+                || (playerCounterplayFeedback == null && playerHealth != null))
             {
                 ResolveReferences();
                 SubscribeToBranchEventRoom();
@@ -68,11 +72,17 @@ namespace AICompanionRoguelike.UI
                 GameObject player = GameObject.Find("Player");
                 playerHealth = player != null ? player.GetComponent<HealthComponent>() : null;
                 branchChoiceBuff = player != null ? player.GetComponent<PlayerBranchChoiceBuff>() : branchChoiceBuff;
+                playerCounterplayFeedback = player != null ? player.GetComponent<PlayerCounterplayFeedback>() : playerCounterplayFeedback;
             }
 
             if (branchChoiceBuff == null && playerHealth != null)
             {
                 branchChoiceBuff = playerHealth.GetComponent<PlayerBranchChoiceBuff>();
+            }
+
+            if (playerCounterplayFeedback == null && playerHealth != null)
+            {
+                playerCounterplayFeedback = playerHealth.GetComponent<PlayerCounterplayFeedback>();
             }
 
             if (companionRelationship == null)
@@ -163,11 +173,14 @@ namespace AICompanionRoguelike.UI
 
         private void DrawStatusPanel()
         {
-            GUILayout.BeginArea(panelRect, GUI.skin.box);
+            Rect effectivePanelRect = panelRect;
+            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 236f);
+            GUILayout.BeginArea(effectivePanelRect, GUI.skin.box);
             GUILayout.Label("Run Status");
             GUILayout.Space(4f);
             GUILayout.Label(BuildPlayerHealthLine());
             GUILayout.Label(BuildChallengeBuffLine());
+            GUILayout.Label(BuildCounterplayLine());
             GUILayout.Space(4f);
             GUILayout.Label(BuildRelationshipLine());
             GUILayout.Label(BuildMemoryLine());
@@ -208,6 +221,13 @@ namespace AICompanionRoguelike.UI
             }
 
             return $"Challenge Buff: {branchChoiceBuff.RemainingDuration:0.0}s | ATK x{branchChoiceBuff.OutgoingDamageMultiplier:0.##} | DMG x{branchChoiceBuff.IncomingDamageMultiplier:0.##}";
+        }
+
+        private string BuildCounterplayLine()
+        {
+            return playerCounterplayFeedback != null
+                ? playerCounterplayFeedback.GetStatusLabel()
+                : "Counterplay: --";
         }
 
         private string BuildRelationshipLine()

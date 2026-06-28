@@ -22,10 +22,12 @@ namespace AICompanionRoguelike.Combat
         [Header("References")]
         [SerializeField] private HealthComponent health;
         [SerializeField] private PlayerMovement2D movement;
-        [SerializeField] private PlayerCombat2D combat;
 
         [Header("Counterplay")]
         [SerializeField, Min(0f)] private float postHitInvulnerabilityDuration = 0.45f;
+        [SerializeField, Min(0f)] private float dodgeDamageBoostDuration;
+        [SerializeField, Min(1f)] private float dodgeDamageMultiplier = 1f;
+        [SerializeField, Min(1f)] private float guardOpeningDamageMultiplier = 1f;
         [SerializeField, Min(0.05f)] private float feedbackDuration = 1.15f;
 
         [Header("Visual Feedback")]
@@ -41,8 +43,8 @@ namespace AICompanionRoguelike.Combat
 
         private HealthComponent subscribedHealth;
         private PlayerMovement2D subscribedMovement;
-        private PlayerCombat2D subscribedCombat;
         private float recoveryTimer;
+        private float dodgeDamageBoostTimer;
         private float feedbackTimer;
 
         public event System.Action<PlayerCounterplayFeedback, PlayerCounterplayFeedbackKind, string> FeedbackIssued;
@@ -52,12 +54,17 @@ namespace AICompanionRoguelike.Combat
             && !string.IsNullOrWhiteSpace(LastFeedbackMessage);
         public PlayerCounterplayFeedbackKind LastFeedbackKind { get; private set; }
         public string LastFeedbackMessage { get; private set; } = string.Empty;
+        public float PostHitInvulnerabilityDuration => postHitInvulnerabilityDuration;
+        public float DodgeDamageBoostDuration => dodgeDamageBoostDuration;
+        public float DodgeDamageMultiplier => dodgeDamageMultiplier;
+        public float GuardOpeningDamageMultiplier => guardOpeningDamageMultiplier;
+        public float DodgeDamageBoostRemaining => dodgeDamageBoostTimer;
+        public bool IsDodgeDamageBoostActive => dodgeDamageBoostTimer > 0f && dodgeDamageMultiplier > 1f;
 
         private void Reset()
         {
             health = GetComponent<HealthComponent>();
             movement = GetComponent<PlayerMovement2D>();
-            combat = GetComponent<PlayerCombat2D>();
         }
 
         private void Awake()
@@ -88,6 +95,9 @@ namespace AICompanionRoguelike.Combat
         private void OnValidate()
         {
             postHitInvulnerabilityDuration = Mathf.Max(0f, postHitInvulnerabilityDuration);
+            dodgeDamageBoostDuration = Mathf.Max(0f, dodgeDamageBoostDuration);
+            dodgeDamageMultiplier = Mathf.Max(1f, dodgeDamageMultiplier);
+            guardOpeningDamageMultiplier = Mathf.Max(1f, guardOpeningDamageMultiplier);
             feedbackDuration = Mathf.Max(0.05f, feedbackDuration);
             UpdateVisual();
         }
@@ -109,6 +119,11 @@ namespace AICompanionRoguelike.Combat
                 }
             }
 
+            if (dodgeDamageBoostTimer > 0f)
+            {
+                dodgeDamageBoostTimer = Mathf.Max(0f, dodgeDamageBoostTimer - safeDeltaTime);
+            }
+
             UpdateVisual();
         }
 
@@ -122,6 +137,7 @@ namespace AICompanionRoguelike.Combat
 
         public void ReportProjectileDodge()
         {
+            ActivateDodgeDamageBoost();
             IssueFeedback(PlayerCounterplayFeedbackKind.ProjectileDodge, "Perfect dodge: projectile avoided.");
         }
 
@@ -143,6 +159,7 @@ namespace AICompanionRoguelike.Combat
             if (movement != null && movement.IsInvincible)
             {
                 damageInfo.damage = 0f;
+                ActivateDodgeDamageBoost();
                 IssueFeedback(PlayerCounterplayFeedbackKind.DashDodge, "Perfect dodge: no damage.");
                 return damageInfo;
             }
@@ -158,18 +175,74 @@ namespace AICompanionRoguelike.Combat
             return damageInfo;
         }
 
+        public DamageInfo ModifyOutgoingDamage(HealthComponent targetHealth, DamageInfo damageInfo)
+        {
+            if (targetHealth == null
+                || damageInfo.damage <= 0f
+                || damageInfo.sourceType != DamageSourceType.Player)
+            {
+                return damageInfo;
+            }
+
+            float outgoingMultiplier = 1f;
+            if (IsDodgeDamageBoostActive)
+            {
+                outgoingMultiplier *= dodgeDamageMultiplier;
+            }
+
+            if (IsGuardOpeningTarget(targetHealth))
+            {
+                outgoingMultiplier *= guardOpeningDamageMultiplier;
+            }
+
+            if (outgoingMultiplier > 1f)
+            {
+                damageInfo.damage *= outgoingMultiplier;
+            }
+
+            return damageInfo;
+        }
+
+        public void AddRecoveryDuration(float durationBonus)
+        {
+            postHitInvulnerabilityDuration = Mathf.Max(
+                0f,
+                postHitInvulnerabilityDuration + Mathf.Max(0f, durationBonus));
+        }
+
+        public void ImproveDodgeDamageBoost(float duration, float multiplier)
+        {
+            dodgeDamageBoostDuration = Mathf.Max(dodgeDamageBoostDuration, Mathf.Max(0f, duration));
+            dodgeDamageMultiplier = Mathf.Max(1f, dodgeDamageMultiplier * Mathf.Max(1f, multiplier));
+        }
+
+        public void MultiplyGuardOpeningDamage(float multiplier)
+        {
+            guardOpeningDamageMultiplier = Mathf.Max(
+                1f,
+                guardOpeningDamageMultiplier * Mathf.Max(1f, multiplier));
+        }
+
+        public string GetStatusLabel()
+        {
+            ResolveReferences();
+            string dashLabel = movement != null ? $"{movement.DashCooldown:0.00}s" : "--";
+            string boostLabel = IsDodgeDamageBoostActive
+                ? $"x{dodgeDamageMultiplier:0.##} ({dodgeDamageBoostTimer:0.0}s)"
+                : $"x{dodgeDamageMultiplier:0.##}";
+            return $"Counterplay: Dash CD {dashLabel} | Recovery {postHitInvulnerabilityDuration:0.00}s | Dodge {boostLabel} | Opening x{guardOpeningDamageMultiplier:0.##}";
+        }
+
         private void ResolveReferences()
         {
             health = health != null ? health : GetComponent<HealthComponent>();
             movement = movement != null ? movement : GetComponent<PlayerMovement2D>();
-            combat = combat != null ? combat : GetComponent<PlayerCombat2D>();
         }
 
         private void Subscribe()
         {
             SubscribeToHealth();
             SubscribeToMovement();
-            SubscribeToCombat();
         }
 
         private void Unsubscribe()
@@ -186,11 +259,6 @@ namespace AICompanionRoguelike.Combat
                 subscribedMovement = null;
             }
 
-            if (subscribedCombat != null)
-            {
-                subscribedCombat.TargetHit -= HandleTargetHit;
-                subscribedCombat = null;
-            }
         }
 
         private void SubscribeToHealth()
@@ -231,25 +299,6 @@ namespace AICompanionRoguelike.Combat
             }
         }
 
-        private void SubscribeToCombat()
-        {
-            if (combat == subscribedCombat)
-            {
-                return;
-            }
-
-            if (subscribedCombat != null)
-            {
-                subscribedCombat.TargetHit -= HandleTargetHit;
-            }
-
-            subscribedCombat = combat;
-            if (subscribedCombat != null)
-            {
-                subscribedCombat.TargetHit += HandleTargetHit;
-            }
-        }
-
         private void HandleDashStarted()
         {
             IssueFeedback(PlayerCounterplayFeedbackKind.DashStarted, "Dash: invulnerable.");
@@ -278,16 +327,31 @@ namespace AICompanionRoguelike.Combat
                 return;
             }
 
+            if (IsGuardOpeningTarget(targetHealth))
+            {
+                IssueFeedback(PlayerCounterplayFeedbackKind.GuardOpening, "Counter hit: Guard opening punished.");
+            }
+        }
+
+        private void ActivateDodgeDamageBoost()
+        {
+            if (dodgeDamageBoostDuration <= 0f || dodgeDamageMultiplier <= 1f)
+            {
+                return;
+            }
+
+            dodgeDamageBoostTimer = Mathf.Max(dodgeDamageBoostTimer, dodgeDamageBoostDuration);
+        }
+
+        private static bool IsGuardOpeningTarget(HealthComponent targetHealth)
+        {
             EnemyAttackPattern2D pattern = targetHealth.GetComponent<EnemyAttackPattern2D>();
             if (pattern == null)
             {
                 pattern = targetHealth.GetComponentInParent<EnemyAttackPattern2D>();
             }
 
-            if (pattern != null && pattern.IsGuardVulnerable)
-            {
-                IssueFeedback(PlayerCounterplayFeedbackKind.GuardOpening, "Counter hit: Guard opening punished.");
-            }
+            return pattern != null && pattern.IsGuardVulnerable;
         }
 
         private void IssueFeedback(PlayerCounterplayFeedbackKind kind, string message)
@@ -333,7 +397,10 @@ namespace AICompanionRoguelike.Combat
                 return;
             }
 
-            bool active = (movement != null && movement.IsInvincible) || IsRecovering || LastFeedbackKind == PlayerCounterplayFeedbackKind.GuardOpening;
+            bool active = (movement != null && movement.IsInvincible)
+                || IsRecovering
+                || LastFeedbackKind == PlayerCounterplayFeedbackKind.GuardOpening
+                || IsDodgeDamageBoostActive;
             visualRenderer.gameObject.SetActive(active);
             visualRenderer.transform.localPosition = Vector3.zero;
             visualRenderer.transform.localRotation = Quaternion.identity;

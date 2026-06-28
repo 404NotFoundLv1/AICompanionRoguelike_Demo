@@ -83,6 +83,7 @@ namespace AICompanionRoguelike.Combat
             branchChoiceBuff = branchChoiceBuff != null ? branchChoiceBuff : GetComponent<PlayerBranchChoiceBuff>();
             float outgoingMultiplier = branchChoiceBuff != null ? branchChoiceBuff.OutgoingDamageMultiplier : 1f;
             DamageInfo damageInfo = new DamageInfo(damage * outgoingMultiplier, DamageSourceType.Player, gameObject);
+            PlayerCounterplayFeedback[] counterplayFeedbacks = GetComponents<PlayerCounterplayFeedback>();
 
             for (int i = 0; i < hitCount; i++)
             {
@@ -102,15 +103,20 @@ namespace AICompanionRoguelike.Combat
                     continue;
                 }
 
-                health.TakeDamage(damageInfo);
-                TargetHit?.Invoke(this, health, damageInfo);
-                PlayerCounterplayFeedback[] counterplayFeedbacks = GetComponents<PlayerCounterplayFeedback>();
+                DamageInfo hitDamageInfo = damageInfo;
                 for (int feedbackIndex = 0; feedbackIndex < counterplayFeedbacks.Length; feedbackIndex++)
                 {
-                    counterplayFeedbacks[feedbackIndex].ReportPlayerHitTarget(health, damageInfo);
+                    hitDamageInfo = counterplayFeedbacks[feedbackIndex].ModifyOutgoingDamage(health, hitDamageInfo);
                 }
 
-                Debug.Log($"Player hit {health.name} for {damageInfo.damage} damage. HP: {health.CurrentHealth}/{health.MaxHealth}", health);
+                health.TakeDamage(hitDamageInfo);
+                TargetHit?.Invoke(this, health, hitDamageInfo);
+                for (int feedbackIndex = 0; feedbackIndex < counterplayFeedbacks.Length; feedbackIndex++)
+                {
+                    counterplayFeedbacks[feedbackIndex].ReportPlayerHitTarget(health, hitDamageInfo);
+                }
+
+                Debug.Log($"Player hit {health.name} for {hitDamageInfo.damage} damage. HP: {health.CurrentHealth}/{health.MaxHealth}", health);
             }
         }
 

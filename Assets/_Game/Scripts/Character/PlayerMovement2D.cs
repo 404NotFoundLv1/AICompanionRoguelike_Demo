@@ -49,6 +49,7 @@ namespace AICompanionRoguelike.Character
         public bool IsInvincible { get; private set; }
         public int FacingDirection => facingDirection;
         public float MoveSpeed => moveSpeed;
+        public float DashCooldown => dashCooldown;
 
         private void Reset()
         {
@@ -247,6 +248,12 @@ namespace AICompanionRoguelike.Character
         public void MultiplyMoveSpeed(float multiplier)
         {
             moveSpeed = Mathf.Max(0f, moveSpeed * Mathf.Max(0f, multiplier));
+        }
+
+        public void MultiplyDashCooldown(float multiplier)
+        {
+            dashCooldown = Mathf.Max(0f, dashCooldown * Mathf.Max(0f, multiplier));
+            dashCooldownTimer = Mathf.Min(dashCooldownTimer, dashCooldown);
         }
 
         private void HandleDeath(HealthComponent deadHealth, DamageInfo damageInfo)

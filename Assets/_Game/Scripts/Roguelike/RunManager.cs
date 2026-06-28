@@ -14,6 +14,14 @@ namespace AICompanionRoguelike.Roguelike
     [RequireComponent(typeof(RoomManager))]
     public sealed class RunManager : MonoBehaviour
     {
+        private static readonly RunRewardType[] CounterplayRewardTypes =
+        {
+            RunRewardType.DashCooldown,
+            RunRewardType.RecoveryWindow,
+            RunRewardType.DodgeDamageBoost,
+            RunRewardType.GuardOpeningDamage
+        };
+
         [Header("References")]
         [SerializeField] private RoomManager roomManager;
         [SerializeField] private BranchEventRoomController branchEventRoomController;
@@ -70,6 +78,11 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(1f)] private float moveSpeedRewardMultiplier = 1.1f;
         [SerializeField, Range(0.1f, 1f)] private float companionCooldownRewardMultiplier = 0.85f;
         [SerializeField, Min(0f)] private float bondRescueHealthReward = 10f;
+        [SerializeField, Range(0.1f, 1f)] private float counterplayDashCooldownMultiplier = 0.85f;
+        [SerializeField, Min(0f)] private float counterplayRecoveryDurationBonus = 0.12f;
+        [SerializeField, Min(0f)] private float counterplayDodgeBoostDuration = 2f;
+        [SerializeField, Min(1f)] private float counterplayDodgeDamageMultiplier = 1.25f;
+        [SerializeField, Min(1f)] private float counterplayGuardOpeningDamageMultiplier = 1.25f;
         [SerializeField, Min(0)] private int eliteBonusRewardChoices = 1;
         [SerializeField, Min(1)] private int shopRewardChoiceCount = 2;
         [SerializeField, Min(0f)] private float safeRoomHealAmount = 25f;
@@ -94,7 +107,7 @@ namespace AICompanionRoguelike.Roguelike
         private readonly List<RoomModifierType> currentRoomChoiceModifiers = new List<RoomModifierType>(4);
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
-        private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(5);
+        private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(8);
 
         public static event Action<RunManager> AnyRunStarted;
         public event Action<RunManager> RunStarted;
@@ -595,27 +608,36 @@ namespace AICompanionRoguelike.Roguelike
 
         private List<RunRewardType> BuildRewardCandidateList()
         {
-            List<RunRewardType> candidates = new List<RunRewardType>(8);
+            List<RunRewardType> candidates = new List<RunRewardType>(12);
 
             if (selectableRewards != null)
             {
                 for (int i = 0; i < selectableRewards.Length; i++)
                 {
-                    RunRewardType reward = selectableRewards[i];
-                    if (!candidates.Contains(reward))
-                    {
-                        candidates.Add(reward);
-                    }
+                    AddRewardCandidate(candidates, selectableRewards[i]);
                 }
             }
 
-            RunRewardType? buildRewardType = GetCurrentBuildRewardType();
-            if (buildRewardType.HasValue && !candidates.Contains(buildRewardType.Value))
+            for (int i = 0; i < CounterplayRewardTypes.Length; i++)
             {
-                candidates.Add(buildRewardType.Value);
+                AddRewardCandidate(candidates, CounterplayRewardTypes[i]);
+            }
+
+            RunRewardType? buildRewardType = GetCurrentBuildRewardType();
+            if (buildRewardType.HasValue)
+            {
+                AddRewardCandidate(candidates, buildRewardType.Value);
             }
 
             return candidates;
+        }
+
+        private static void AddRewardCandidate(List<RunRewardType> candidates, RunRewardType reward)
+        {
+            if (!candidates.Contains(reward))
+            {
+                candidates.Add(reward);
+            }
         }
 
         private RunRewardChoice CreateRewardChoice(RunRewardType rewardType)
@@ -632,6 +654,26 @@ namespace AICompanionRoguelike.Roguelike
                     return new RunRewardChoice(rewardType, $"AI 支援冷却 -{(1f - companionCooldownRewardMultiplier) * 100f:0}%", "AI 队友支援攻击更频繁。");
                 case RunRewardType.BondRescueHealth:
                     return new RunRewardChoice(rewardType, $"濒死保护生命 +{bondRescueHealthReward:0}", "濒死保护触发后保留更多生命。");
+                case RunRewardType.DashCooldown:
+                    return new RunRewardChoice(
+                        rewardType,
+                        $"Counterplay: Dash Cooldown -{(1f - counterplayDashCooldownMultiplier) * 100f:0}%",
+                        "Dash returns faster, making projectile dodges and repositioning safer.");
+                case RunRewardType.RecoveryWindow:
+                    return new RunRewardChoice(
+                        rewardType,
+                        $"Counterplay: Recovery +{counterplayRecoveryDurationBonus:0.00}s",
+                        "After taking a hit, follow-up enemy damage is blocked for a little longer.");
+                case RunRewardType.DodgeDamageBoost:
+                    return new RunRewardChoice(
+                        rewardType,
+                        $"Counterplay: Dodge Strike x{counterplayDodgeDamageMultiplier:0.##}",
+                        $"Successful dodges empower player attacks for {counterplayDodgeBoostDuration:0.0}s.");
+                case RunRewardType.GuardOpeningDamage:
+                    return new RunRewardChoice(
+                        rewardType,
+                        $"Counterplay: Guard Opening x{counterplayGuardOpeningDamageMultiplier:0.##}",
+                        "Hitting a vulnerable Guard deals extra counterplay damage.");
                 case RunRewardType.GuardianBuildUpgrade:
                     return new RunRewardChoice(
                         rewardType,
@@ -673,6 +715,18 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardType.BondRescueHealth:
                     ApplyBondRescueHealthReward(player);
                     break;
+                case RunRewardType.DashCooldown:
+                    ApplyCounterplayDashCooldownReward(player);
+                    break;
+                case RunRewardType.RecoveryWindow:
+                    ApplyCounterplayRecoveryReward(player);
+                    break;
+                case RunRewardType.DodgeDamageBoost:
+                    ApplyCounterplayDodgeBoostReward(player);
+                    break;
+                case RunRewardType.GuardOpeningDamage:
+                    ApplyCounterplayGuardOpeningReward(player);
+                    break;
                 case RunRewardType.GuardianBuildUpgrade:
                     ApplyBuildUpgradeReward(CompanionSkillTendency.Guardian);
                     break;
@@ -682,6 +736,11 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardType.LinkBuildUpgrade:
                     ApplyBuildUpgradeReward(CompanionSkillTendency.Link);
                     break;
+            }
+
+            if (IsCounterplayReward(rewardType))
+            {
+                ShowCompanionCounterplayRewardFeedback(rewardType);
             }
         }
 
@@ -863,6 +922,51 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        private static bool IsCounterplayReward(RunRewardType rewardType)
+        {
+            for (int i = 0; i < CounterplayRewardTypes.Length; i++)
+            {
+                if (CounterplayRewardTypes[i] == rewardType)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void ShowCompanionCounterplayRewardFeedback(RunRewardType rewardType)
+        {
+            string message = BuildCompanionCounterplayRewardLine(rewardType);
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            CompanionSpeechBubbleUI speechBubble = UnityEngine.Object.FindAnyObjectByType<CompanionSpeechBubbleUI>();
+            if (speechBubble != null)
+            {
+                speechBubble.ShowMessage(message, 4f, 3);
+            }
+        }
+
+        private static string BuildCompanionCounterplayRewardLine(RunRewardType rewardType)
+        {
+            switch (rewardType)
+            {
+                case RunRewardType.DashCooldown:
+                    return "AI: Your dash recovers faster. I can call safer openings now.";
+                case RunRewardType.RecoveryWindow:
+                    return "AI: I will watch the follow-up. Your recovery window is stronger.";
+                case RunRewardType.DodgeDamageBoost:
+                    return "AI: Dodge cleanly, then strike. I will mark the timing.";
+                case RunRewardType.GuardOpeningDamage:
+                    return "AI: When the Guard opens up, punish it hard.";
+                default:
+                    return string.Empty;
+            }
+        }
+
         private void ApplyMaxHealthReward(GameObject player)
         {
             HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
@@ -906,6 +1010,59 @@ namespace AICompanionRoguelike.Roguelike
             {
                 bondRescueSystem.AddRescueHealth(bondRescueHealthReward);
             }
+        }
+
+        private void ApplyCounterplayDashCooldownReward(GameObject player)
+        {
+            PlayerMovement2D movement = player != null ? player.GetComponent<PlayerMovement2D>() : null;
+            if (movement != null)
+            {
+                movement.MultiplyDashCooldown(counterplayDashCooldownMultiplier);
+            }
+        }
+
+        private void ApplyCounterplayRecoveryReward(GameObject player)
+        {
+            PlayerCounterplayFeedback counterplay = GetOrAddPlayerCounterplay(player);
+            if (counterplay != null)
+            {
+                counterplay.AddRecoveryDuration(counterplayRecoveryDurationBonus);
+            }
+        }
+
+        private void ApplyCounterplayDodgeBoostReward(GameObject player)
+        {
+            PlayerCounterplayFeedback counterplay = GetOrAddPlayerCounterplay(player);
+            if (counterplay != null)
+            {
+                counterplay.ImproveDodgeDamageBoost(
+                    counterplayDodgeBoostDuration,
+                    counterplayDodgeDamageMultiplier);
+            }
+        }
+
+        private void ApplyCounterplayGuardOpeningReward(GameObject player)
+        {
+            PlayerCounterplayFeedback counterplay = GetOrAddPlayerCounterplay(player);
+            if (counterplay != null)
+            {
+                counterplay.MultiplyGuardOpeningDamage(counterplayGuardOpeningDamageMultiplier);
+            }
+        }
+
+        private static PlayerCounterplayFeedback GetOrAddPlayerCounterplay(GameObject player)
+        {
+            if (player == null)
+            {
+                return null;
+            }
+
+            if (!player.TryGetComponent(out PlayerCounterplayFeedback counterplay))
+            {
+                counterplay = player.AddComponent<PlayerCounterplayFeedback>();
+            }
+
+            return counterplay;
         }
 
         private void RecordRouteEntry(RoomType roomType, int roomNumber, RoomModifierType roomModifier)

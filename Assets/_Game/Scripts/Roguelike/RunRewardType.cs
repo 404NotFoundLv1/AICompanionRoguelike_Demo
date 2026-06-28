@@ -7,6 +7,10 @@ namespace AICompanionRoguelike.Roguelike
         MoveSpeed,
         CompanionCooldown,
         BondRescueHealth,
+        DashCooldown,
+        RecoveryWindow,
+        DodgeDamageBoost,
+        GuardOpeningDamage,
         GuardianBuildUpgrade,
         SuppressorBuildUpgrade,
         LinkBuildUpgrade
