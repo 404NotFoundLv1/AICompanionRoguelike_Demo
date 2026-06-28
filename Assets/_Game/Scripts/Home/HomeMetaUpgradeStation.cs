@@ -16,8 +16,11 @@ namespace AICompanionRoguelike.Home
         [Header("UI")]
         [SerializeField] private bool showPrompt = true;
         [SerializeField] private Rect promptRect = new Rect(16f, 72f, 460f, 170f);
+        [SerializeField, Min(0.5f)] private float feedbackDuration = 2.5f;
 
         private bool playerInRange;
+        private string lastFeedback = string.Empty;
+        private float feedbackHideAtUnscaledTime;
 
         private void Reset()
         {
@@ -58,8 +61,9 @@ namespace AICompanionRoguelike.Home
         public bool TryPurchase(MetaUpgradeType upgradeType)
         {
             bool purchased = MetaProgressionState.TryPurchaseUpgrade(upgradeType);
-            string result = purchased ? "purchased" : "not enough Core Fragments";
-            Debug.Log($"{MetaProgressionState.GetUpgradeDisplayName(upgradeType)} {result}.", this);
+            lastFeedback = BuildPurchaseFeedback(upgradeType, purchased);
+            feedbackHideAtUnscaledTime = Time.unscaledTime + feedbackDuration;
+            Debug.Log(lastFeedback, this);
             return purchased;
         }
 
@@ -92,6 +96,12 @@ namespace AICompanionRoguelike.Home
             DrawUpgradeLine(playerMaxHealthKey, MetaUpgradeType.PlayerMaxHealth, "+10 Max HP next run");
             DrawUpgradeLine(playerDamageKey, MetaUpgradeType.PlayerDamage, "+8% damage next run");
             DrawUpgradeLine(companionCooldownKey, MetaUpgradeType.CompanionCooldown, "-5% AI cooldown next run");
+            if (!string.IsNullOrEmpty(lastFeedback) && Time.unscaledTime < feedbackHideAtUnscaledTime)
+            {
+                GUILayout.Space(6f);
+                GUILayout.Label(lastFeedback);
+            }
+
             GUILayout.EndArea();
         }
 
@@ -115,6 +125,17 @@ namespace AICompanionRoguelike.Home
             int cost = MetaProgressionState.GetUpgradeCost(type);
             GUILayout.Label(
                 $"[{FormatKey(key)}] {MetaProgressionState.GetUpgradeDisplayName(type)} Lv{level} | Cost {cost} | {effectText}");
+        }
+
+        public static string BuildPurchaseFeedback(MetaUpgradeType type, bool purchased)
+        {
+            string displayName = MetaProgressionState.GetUpgradeDisplayName(type);
+            if (purchased)
+            {
+                return $"Purchased {displayName} Lv{MetaProgressionState.GetUpgradeLevel(type)}. Core Fragments: {MetaProgressionState.CoreFragments}.";
+            }
+
+            return $"Need {MetaProgressionState.GetUpgradeCost(type)} Core Fragments for {displayName}. Current: {MetaProgressionState.CoreFragments}.";
         }
 
         private static string FormatKey(Key key)

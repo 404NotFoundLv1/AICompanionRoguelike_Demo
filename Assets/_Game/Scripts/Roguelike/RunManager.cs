@@ -61,7 +61,7 @@ namespace AICompanionRoguelike.Roguelike
 
         [Header("Room Feedback")]
         [SerializeField] private bool showRoomFeedbackPanel = true;
-        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 520f, 98f);
+        [SerializeField] private Rect roomFeedbackPanelRect = new Rect(360f, 16f, 560f, 126f);
 
         [Header("Rewards")]
         [SerializeField] private bool useRoomRewards = true;
@@ -105,6 +105,7 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField, Min(0f)] private float metaPlayerMaxHealthBonusPerLevel = 10f;
         [SerializeField, Min(0f)] private float metaPlayerDamageBonusPerLevel = 0.08f;
         [SerializeField, Range(0.1f, 1f)] private float metaCompanionCooldownMultiplierPerLevel = 0.95f;
+        [SerializeField, Min(0.5f)] private float metaProgressionFeedbackDuration = 4f;
 
         [Header("Debug")]
         [SerializeField] private bool logRunMessages = true;
@@ -141,6 +142,8 @@ namespace AICompanionRoguelike.Roguelike
         private int survivalRouteSpecializationCount;
         private int buildRouteSpecializationCount;
         private int appliedMetaProgressionRunId = -1;
+        private string metaProgressionFeedbackLine = string.Empty;
+        private float metaProgressionFeedbackTimer;
 
         public static event Action<RunManager> AnyRunStarted;
         public event Action<RunManager> RunStarted;
@@ -273,6 +276,11 @@ namespace AICompanionRoguelike.Roguelike
 
         private void Update()
         {
+            if (metaProgressionFeedbackTimer > 0f)
+            {
+                metaProgressionFeedbackTimer -= Time.deltaTime;
+            }
+
             if (runCompleted)
             {
                 if (WasCompletionReturnHomePressed())
@@ -1461,12 +1469,29 @@ namespace AICompanionRoguelike.Roguelike
                 }
             }
 
+            if (maxHealthLevel > 0 || damageLevel > 0 || cooldownLevel > 0)
+            {
+                metaProgressionFeedbackLine = BuildMetaProgressionAppliedLine(
+                    maxHealthLevel,
+                    damageLevel,
+                    cooldownLevel);
+                metaProgressionFeedbackTimer = metaProgressionFeedbackDuration;
+            }
+
             if (logRunMessages)
             {
                 Debug.Log(
                     $"Meta upgrades applied. HP Lv{maxHealthLevel}, Damage Lv{damageLevel}, AI Cooldown Lv{cooldownLevel}.",
                     this);
             }
+        }
+
+        public static string BuildMetaProgressionAppliedLine(
+            int playerMaxHealthLevel,
+            int playerDamageLevel,
+            int companionCooldownLevel)
+        {
+            return $"Permanent Upgrades Applied: HP Lv{Mathf.Max(0, playerMaxHealthLevel)} / Damage Lv{Mathf.Max(0, playerDamageLevel)} / AI Cooldown Lv{Mathf.Max(0, companionCooldownLevel)}";
         }
 
         private void ApplyMaxHealthReward(GameObject player)
@@ -2237,6 +2262,15 @@ namespace AICompanionRoguelike.Roguelike
 
             GUILayout.BeginArea(rect, GUI.skin.box);
             GUILayout.Label(lastRoomFeedbackMessage);
+            if (!string.IsNullOrWhiteSpace(metaProgressionFeedbackLine) && metaProgressionFeedbackTimer > 0f)
+            {
+                GUILayout.Space(4f);
+                Color previousColor = GUI.color;
+                GUI.color = new Color(0.55f, 1f, 0.85f, 1f);
+                GUILayout.Label(metaProgressionFeedbackLine);
+                GUI.color = previousColor;
+            }
+
             if (!string.IsNullOrWhiteSpace(lastRoomModifierFeedbackTitle)
                 || !string.IsNullOrWhiteSpace(lastRoomModifierFeedbackLine))
             {
