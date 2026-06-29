@@ -61,6 +61,24 @@ namespace AICompanionRoguelike.Roguelike
             }
         }
 
+        public static string GetChoicePrefix(RunRelicType relicType)
+        {
+            return "RELIC";
+        }
+
+        public static string GetPickupBanner(RunRelicType relicType)
+        {
+            return $"Relic acquired: {GetTitle(relicType)}";
+        }
+
+        public static string GetEffectBanner(RunRelicType relicType, string detail)
+        {
+            string suffix = string.IsNullOrWhiteSpace(detail)
+                ? GetDescription(relicType)
+                : detail;
+            return $"{GetTitle(relicType)}: {suffix}";
+        }
+
         public static RunRewardType GetRewardType(RunRelicType relicType)
         {
             switch (relicType)

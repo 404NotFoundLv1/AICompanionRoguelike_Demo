@@ -94,10 +94,18 @@ namespace AICompanionRoguelike.UI
                 string costSuffix = runManager.IsCurrentRewardShopPurchase
                     ? $" (Cost {runManager.CurrentShopRewardCost})"
                     : string.Empty;
-                if (GUILayout.Button($"[{i + 1}] [{reward.CategoryLabel}] {reward.Title}{costSuffix}"))
+                Color previousBackgroundColor = GUI.backgroundColor;
+                if (reward.Category == RunRewardCategory.Relic)
+                {
+                    GUI.backgroundColor = new Color(0.35f, 0.9f, 1f, 1f);
+                }
+
+                if (GUILayout.Button($"[{i + 1}] [{reward.DisplayCategoryLabel}] {reward.Title}{costSuffix}"))
                 {
                     runManager.SelectReward(i);
                 }
+
+                GUI.backgroundColor = previousBackgroundColor;
 
                 if (!string.IsNullOrWhiteSpace(reward.PreviewLine))
                 {

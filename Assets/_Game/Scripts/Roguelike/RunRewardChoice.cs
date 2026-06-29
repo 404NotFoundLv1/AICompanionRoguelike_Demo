@@ -40,6 +40,7 @@ namespace AICompanionRoguelike.Roguelike
         public string PreviewLine { get; }
         public string GrowthTag { get; }
         public string CategoryLabel => GetCategoryLabel(Category);
+        public string DisplayCategoryLabel => GetDisplayCategoryLabel(Category, RewardType);
 
         public static string GetCategoryLabel(RunRewardCategory category)
         {
@@ -60,6 +61,17 @@ namespace AICompanionRoguelike.Roguelike
                 default:
                     return "Reward";
             }
+        }
+
+        public static string GetDisplayCategoryLabel(RunRewardCategory category, RunRewardType rewardType)
+        {
+            if (category == RunRewardCategory.Relic
+                && RunRelicRules.TryGetRelicType(rewardType, out RunRelicType relicType))
+            {
+                return RunRelicRules.GetChoicePrefix(relicType);
+            }
+
+            return GetCategoryLabel(category);
         }
     }
 }

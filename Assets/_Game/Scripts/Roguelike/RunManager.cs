@@ -147,6 +147,7 @@ namespace AICompanionRoguelike.Roguelike
         private string lastShopFeedbackMessage = string.Empty;
         private string lastSafeRestFeedbackMessage = string.Empty;
         private string lastRelicFeedbackMessage = string.Empty;
+        private string lastRelicBannerMessage = string.Empty;
         private RoomType currentRewardSourceRoomType = RoomType.BattleRoom;
         private bool shopRewardDraftOpen;
         private bool shopRewardPurchasedThisRoom;
@@ -212,6 +213,7 @@ namespace AICompanionRoguelike.Roguelike
         public bool HasUsedCurrentSafeRest => safeRestUsedThisRoom;
         public string LastSafeRestFeedbackMessage => lastSafeRestFeedbackMessage;
         public string LastRelicFeedbackMessage => lastRelicFeedbackMessage;
+        public string LastRelicBannerMessage => lastRelicBannerMessage;
         public string CurrentRelicSummaryLabel => BuildCurrentRelicSummaryLabel();
         public float SyncMarkDamageMultiplier => syncMarkDamageMultiplier;
         public string CurrentGrowthSummaryLabel => BuildCurrentGrowthSummaryLabel();
@@ -363,6 +365,7 @@ namespace AICompanionRoguelike.Roguelike
             lastShopFeedbackMessage = string.Empty;
             lastSafeRestFeedbackMessage = string.Empty;
             lastRelicFeedbackMessage = string.Empty;
+            lastRelicBannerMessage = string.Empty;
             currentRewardSourceRoomType = RoomType.BattleRoom;
             shopRewardDraftOpen = false;
             shopRewardPurchasedThisRoom = false;
@@ -684,12 +687,14 @@ namespace AICompanionRoguelike.Roguelike
             if (HasRelic(relicType))
             {
                 lastRelicFeedbackMessage = $"{RunRelicRules.GetTitle(relicType)} already owned.";
+                lastRelicBannerMessage = RunRelicRules.GetEffectBanner(relicType, "already owned");
                 return false;
             }
 
             currentRelics.Add(relicType);
             string title = RunRelicRules.GetTitle(relicType);
             lastRelicFeedbackMessage = $"Relic acquired: {title}. {RunRelicRules.GetDescription(relicType)}";
+            lastRelicBannerMessage = RunRelicRules.GetPickupBanner(relicType);
             RunSessionState.RecordRelicCollected(title);
             ShowCompanionShopFeedback($"AI: Relic acquired - {RunRelicRules.GetHudLabel(relicType)}.");
             return true;
@@ -767,6 +772,7 @@ namespace AICompanionRoguelike.Roguelike
         private void ApplySafeRestChoice(SafeRestChoice choice)
         {
             float restoredHealth = 0f;
+            lastRelicBannerMessage = string.Empty;
 
             switch (choice.ChoiceType)
             {
@@ -787,6 +793,9 @@ namespace AICompanionRoguelike.Roguelike
                     {
                         supplyGain += RunRelicRules.FieldBackpackPrepareBonusSupplies;
                         lastRelicFeedbackMessage = $"Field Backpack added +{RunRelicRules.FieldBackpackPrepareBonusSupplies} supply.";
+                        lastRelicBannerMessage = RunRelicRules.GetEffectBanner(
+                            RunRelicType.FieldBackpack,
+                            $"+{RunRelicRules.FieldBackpackPrepareBonusSupplies} supply");
                     }
 
                     currentSupplies += supplyGain;
@@ -1615,6 +1624,7 @@ namespace AICompanionRoguelike.Roguelike
         private float ApplyRelicRoomEntryEffects(RoomType roomType)
         {
             lastRelicFeedbackMessage = string.Empty;
+            lastRelicBannerMessage = string.Empty;
 
             if (!HasRelic(RunRelicType.FirstAidCharm) || !IsCombatRoom(roomType))
             {
@@ -1625,6 +1635,9 @@ namespace AICompanionRoguelike.Roguelike
             lastRelicFeedbackMessage = restoredHealth > 0f
                 ? $"First Aid Charm restored {restoredHealth:0} HP."
                 : "First Aid Charm ready, but HP is full.";
+            lastRelicBannerMessage = restoredHealth > 0f
+                ? RunRelicRules.GetEffectBanner(RunRelicType.FirstAidCharm, $"+{restoredHealth:0} HP")
+                : RunRelicRules.GetEffectBanner(RunRelicType.FirstAidCharm, "ready at full HP");
             return restoredHealth;
         }
 
@@ -2801,6 +2814,15 @@ namespace AICompanionRoguelike.Roguelike
 
             GUILayout.BeginArea(rect, GUI.skin.box);
             GUILayout.Label(lastRoomFeedbackMessage);
+            if (!string.IsNullOrWhiteSpace(lastRelicBannerMessage))
+            {
+                GUILayout.Space(4f);
+                Color previousColor = GUI.color;
+                GUI.color = new Color(0.35f, 0.95f, 1f, 1f);
+                GUILayout.Label(lastRelicBannerMessage);
+                GUI.color = previousColor;
+            }
+
             if (!string.IsNullOrWhiteSpace(metaProgressionFeedbackLine) && metaProgressionFeedbackTimer > 0f)
             {
                 GUILayout.Space(4f);
