@@ -18,14 +18,17 @@ namespace AICompanionRoguelike.Roguelike
 
         [Header("Visual")]
         [SerializeField] private Color availableColor = new Color(0.15f, 0.95f, 0.78f, 0.95f);
+        [SerializeField] private Color highlightedColor = new Color(0.85f, 1f, 0.35f, 1f);
         [SerializeField] private Color usedColor = new Color(0.45f, 0.45f, 0.45f, 0.65f);
 
         private SpriteRenderer spriteRenderer;
         private Collider2D triggerCollider;
+        private RoomInteractionVisualCue2D visualCue;
         private bool playerInRange;
 
         public bool IsPlayerInRange => playerInRange;
         public bool IsAvailable => runManager != null && runManager.CanOpenShopRewardDraft;
+        public RoomInteractionVisualCue2D VisualCue => visualCue;
 
         private void Reset()
         {
@@ -46,6 +49,7 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             ResolveRunManager();
+            ResolveVisualCue();
             RefreshVisualState();
         }
 
@@ -75,6 +79,7 @@ namespace AICompanionRoguelike.Roguelike
         public void Configure(RunManager manager)
         {
             runManager = manager;
+            ResolveVisualCue();
             RefreshVisualState();
         }
 
@@ -110,13 +115,22 @@ namespace AICompanionRoguelike.Roguelike
 
         private void RefreshVisualState()
         {
+            spriteRenderer = spriteRenderer != null ? spriteRenderer : GetComponent<SpriteRenderer>();
+            triggerCollider = triggerCollider != null ? triggerCollider : GetComponent<Collider2D>();
+            ResolveVisualCue();
+
             bool inShopRoom = runManager != null && runManager.CurrentRoomType == RoomType.ShopRoom;
             bool visible = inShopRoom;
+            bool available = IsAvailable;
+            bool highlighted = available
+                && runManager != null
+                && runManager.CurrentNextStepLabel.IndexOf("shop", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            visualCue.ApplyState(visible, available, highlighted);
 
             if (spriteRenderer != null)
             {
                 spriteRenderer.enabled = visible;
-                spriteRenderer.color = IsAvailable ? availableColor : usedColor;
+                spriteRenderer.color = visualCue.CurrentColor;
             }
 
             if (triggerCollider != null)
@@ -129,6 +143,20 @@ namespace AICompanionRoguelike.Roguelike
             {
                 playerInRange = false;
             }
+        }
+
+        private void ResolveVisualCue()
+        {
+            if (visualCue == null)
+            {
+                visualCue = GetComponent<RoomInteractionVisualCue2D>();
+                if (visualCue == null)
+                {
+                    visualCue = gameObject.AddComponent<RoomInteractionVisualCue2D>();
+                }
+            }
+
+            visualCue.Configure("Shop", availableColor, highlightedColor, usedColor);
         }
 
         private void OnGUI()

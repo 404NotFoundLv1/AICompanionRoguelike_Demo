@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 5323974}
   - component: {fileID: 5323973}
   - component: {fileID: 5323972}
+  - component: {fileID: 5323976}
   m_Layer: 0
   m_Name: SupplyShop
   m_TagString: Untagged
@@ -161,6 +162,7 @@ MonoBehaviour:
     width: 340
     height: 58
   availableColor: {r: 0.15, g: 0.95, b: 0.78, a: 0.95}
+  highlightedColor: {r: 0.85, g: 1, b: 0.35, a: 1}
   usedColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.65}
 --- !u!61 &5323973
 BoxCollider2D:
@@ -282,6 +284,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5323976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5323971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfa72d5f46ad94f4b8ee424a2d28865d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.RoomInteractionVisualCue2D
+  roleLabel: Interact
+  availableColor: {r: 0.35, g: 0.9, b: 1, a: 0.95}
+  highlightedColor: {r: 0.85, g: 1, b: 0.35, a: 1}
+  unavailableColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.65}
+  markerLocalPosition: {x: 0, y: 0.72, z: 0}
+  markerLocalScale: {x: 0.42, y: 0.1, z: 1}
 --- !u!4 &313638954 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5114151113306494023, guid: 90809396b57f64a4b865add328224211, type: 3}
@@ -310,6 +330,7 @@ GameObject:
   - component: {fileID: 505831152}
   - component: {fileID: 505831151}
   - component: {fileID: 505831150}
+  - component: {fileID: 505831154}
   m_Layer: 0
   m_Name: SafeRestPoint
   m_TagString: Untagged
@@ -340,6 +361,7 @@ MonoBehaviour:
     width: 320
     height: 56
   availableColor: {r: 0.45, g: 0.95, b: 0.35, a: 0.95}
+  highlightedColor: {r: 0.85, g: 1, b: 0.35, a: 1}
   usedColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.65}
 --- !u!61 &505831151
 BoxCollider2D:
@@ -461,6 +483,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &505831154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 505831149}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfa72d5f46ad94f4b8ee424a2d28865d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.RoomInteractionVisualCue2D
+  roleLabel: Interact
+  availableColor: {r: 0.35, g: 0.9, b: 1, a: 0.95}
+  highlightedColor: {r: 0.85, g: 1, b: 0.35, a: 1}
+  unavailableColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.65}
+  markerLocalPosition: {x: 0, y: 0.72, z: 0}
+  markerLocalScale: {x: 0.42, y: 0.1, z: 1}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -772,6 +812,9 @@ MonoBehaviour:
   shopRewardChoiceCount: 2
   safeRoomHealAmount: 25
   startingSupplies: 0
+  selectableRelics: 000000000100000002000000
+  firstAidCharmHealAmount: 8
+  syncMarkDamageMultiplier: 1.25
   metaPlayerMaxHealthBonusPerLevel: 10
   metaPlayerDamageBonusPerLevel: 0.08
   metaCompanionCooldownMultiplierPerLevel: 0.95
@@ -1212,6 +1255,7 @@ GameObject:
   - component: {fileID: 1244547045}
   - component: {fileID: 1244547044}
   - component: {fileID: 1244547043}
+  - component: {fileID: 1244547047}
   m_Layer: 0
   m_Name: NextRoomChoicePortal
   m_TagString: Untagged
@@ -1239,6 +1283,8 @@ MonoBehaviour:
   portalPosition: {x: 6.45, y: -1.15, z: -0.1}
   idleColor: {r: 0.15, g: 0.8, b: 1, a: 0.85}
   readyColor: {r: 0.35, g: 1, b: 0.6, a: 0.95}
+  highlightedColor: {r: 0.85, g: 1, b: 0.35, a: 1}
+  unavailableColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.65}
 --- !u!61 &1244547044
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1359,6 +1405,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1244547047
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1244547042}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dfa72d5f46ad94f4b8ee424a2d28865d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.RoomInteractionVisualCue2D
+  roleLabel: Interact
+  availableColor: {r: 0.35, g: 0.9, b: 1, a: 0.95}
+  highlightedColor: {r: 0.85, g: 1, b: 0.35, a: 1}
+  unavailableColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.65}
+  markerLocalPosition: {x: 0, y: 0.72, z: 0}
+  markerLocalScale: {x: 0.42, y: 0.1, z: 1}
 --- !u!1 &1302422682
 GameObject:
   m_ObjectHideFlags: 0

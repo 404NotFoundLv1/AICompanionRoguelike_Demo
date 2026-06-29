@@ -21,12 +21,15 @@ namespace AICompanionRoguelike.Roguelike
         [SerializeField] private Vector3 portalPosition = new Vector3(6.45f, -1.15f, -0.1f);
         [SerializeField] private Color idleColor = new Color(0.15f, 0.8f, 1f, 0.85f);
         [SerializeField] private Color readyColor = new Color(0.35f, 1f, 0.6f, 0.95f);
+        [SerializeField] private Color highlightedColor = new Color(0.85f, 1f, 0.35f, 1f);
+        [SerializeField] private Color unavailableColor = new Color(0.45f, 0.45f, 0.45f, 0.65f);
 
         private readonly List<RoomType> offeredChoices = new List<RoomType>(4);
         private readonly List<RoomChoicePreview> offeredPreviews = new List<RoomChoicePreview>(4);
         private readonly List<RouteMapNode> offeredRouteMapNodes = new List<RouteMapNode>(8);
         private SpriteRenderer portalRenderer;
         private Collider2D portalCollider;
+        private RoomInteractionVisualCue2D visualCue;
         private bool isVisible;
         private bool playerInRange;
         private bool isChoiceOpen;
@@ -37,6 +40,7 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RoomType> OfferedChoices => offeredChoices;
         public IReadOnlyList<RoomChoicePreview> OfferedPreviews => offeredPreviews;
         public IReadOnlyList<RouteMapNode> OfferedRouteMapNodes => offeredRouteMapNodes;
+        public RoomInteractionVisualCue2D VisualCue => visualCue;
 
         private void Reset()
         {
@@ -49,6 +53,7 @@ namespace AICompanionRoguelike.Roguelike
             portalRenderer = GetComponent<SpriteRenderer>();
             portalCollider = GetComponent<Collider2D>();
             transform.position = portalPosition;
+            ResolveVisualCue();
             SetVisible(false);
         }
 
@@ -257,12 +262,37 @@ namespace AICompanionRoguelike.Roguelike
 
         private void RefreshColor()
         {
+            ResolveVisualCue();
+            bool available = isVisible && offeredChoices.Count > 0;
+            bool highlighted = available && ShouldHighlightRoutePortal();
+            visualCue.ApplyState(isVisible, available, highlighted);
+
             if (portalRenderer == null)
             {
                 return;
             }
 
-            portalRenderer.color = playerInRange ? readyColor : idleColor;
+            portalRenderer.color = highlighted ? visualCue.CurrentColor : playerInRange ? readyColor : idleColor;
+        }
+
+        private void ResolveVisualCue()
+        {
+            if (visualCue == null)
+            {
+                visualCue = GetComponent<RoomInteractionVisualCue2D>();
+                if (visualCue == null)
+                {
+                    visualCue = gameObject.AddComponent<RoomInteractionVisualCue2D>();
+                }
+            }
+
+            visualCue.Configure("Route Portal", idleColor, highlightedColor, unavailableColor);
+        }
+
+        private bool ShouldHighlightRoutePortal()
+        {
+            return runManager != null
+                && runManager.CurrentNextStepLabel.IndexOf("Choose a route", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void TrySelectChoiceByKeyboard(Keyboard keyboard)
