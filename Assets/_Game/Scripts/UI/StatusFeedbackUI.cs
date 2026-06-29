@@ -185,6 +185,7 @@ namespace AICompanionRoguelike.UI
             GUILayout.BeginArea(effectivePanelRect, GUI.skin.box);
             GUILayout.Label("Run Status");
             GUILayout.Space(4f);
+            GUILayout.Label(BuildDemoFlowLine());
             GUILayout.Label(BuildRoomObjectiveLine());
             GUILayout.Label(BuildRoomProgressLine());
             GUILayout.Label(BuildNextStepLine());
@@ -226,6 +227,11 @@ namespace AICompanionRoguelike.UI
             }
 
             return $"Player HP: {playerHealth.CurrentHealth:0}/{playerHealth.MaxHealth:0}";
+        }
+
+        private string BuildDemoFlowLine()
+        {
+            return runManager != null ? runManager.CurrentDemoFlowLabel : "Demo Flow: --";
         }
 
         private string BuildRoomObjectiveLine()

@@ -197,6 +197,8 @@ namespace AICompanionRoguelike.Roguelike
         public string CurrentRoomObjectiveLabel => BuildCurrentRoomObjectiveLabel();
         public string CurrentRoomProgressLabel => BuildCurrentRoomProgressLabel();
         public string CurrentNextStepLabel => BuildCurrentNextStepLabel();
+        public bool HasActionableDemoNextStep => BuildHasActionableDemoNextStep();
+        public string CurrentDemoFlowLabel => BuildCurrentDemoFlowLabel();
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
         public IReadOnlyList<RoomModifierType> CurrentRoomChoiceModifiers => currentRoomChoiceModifiers;
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
@@ -2476,6 +2478,99 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             return "Next: Explore";
+        }
+
+        private bool BuildHasActionableDemoNextStep()
+        {
+            if (runCompleted)
+            {
+                return !string.IsNullOrWhiteSpace(homeScenePath);
+            }
+
+            if (waitingForReward)
+            {
+                return currentRewardChoices.Count > 0;
+            }
+
+            if (waitingForRest)
+            {
+                return currentRestChoices.Count > 0;
+            }
+
+            if (waitingForNextRoom)
+            {
+                return currentRoomChoices.Count > 0 || allowDebugNextRoomKey;
+            }
+
+            if (IsCombatRoom(CurrentRoomType))
+            {
+                return roomManager == null || !roomManager.IsRoomCleared;
+            }
+
+            return CurrentRoomType == RoomType.SafeRoom || CurrentRoomType == RoomType.ShopRoom;
+        }
+
+        private string BuildCurrentDemoFlowLabel()
+        {
+            string actionState = HasActionableDemoNextStep ? "Ready" : "Blocked";
+
+            if (runCompleted)
+            {
+                return $"Demo Flow: Complete | {actionState} | Return home with {completionReturnHomeKey}";
+            }
+
+            if (waitingForReward)
+            {
+                if (CurrentRoomType == RoomType.ShopRoom)
+                {
+                    bool isBlockedPurchase = !RunSupplyRules.CanAffordShopReward(currentSupplies);
+                    string shopAction = isBlockedPurchase
+                        ? "Close shop or earn more supplies later"
+                        : "Buy reward or close shop";
+                    return $"Demo Flow: Shop reward | {actionState} | {shopAction}";
+                }
+
+                return $"Demo Flow: Reward | {actionState} | Select a reward to open the route";
+            }
+
+            if (waitingForRest)
+            {
+                return $"Demo Flow: Rest choice | {actionState} | Pick one rest choice or close";
+            }
+
+            if (waitingForNextRoom)
+            {
+                if (ShouldShowSupportRoomObjective())
+                {
+                    return CurrentRoomType == RoomType.SafeRoom
+                        ? $"Demo Flow: Safe room | {actionState} | Rest point optional, then Choose route"
+                        : $"Demo Flow: Supply room | {actionState} | Shop optional, then Choose route";
+                }
+
+                bool bossOnlyChoice = currentRoomChoices.Count == 1 && currentRoomChoices[0] == RoomType.BossRoom;
+                return bossOnlyChoice
+                    ? $"Demo Flow: Boss route | {actionState} | Choose route to Boss"
+                    : $"Demo Flow: Route | {actionState} | Choose route";
+            }
+
+            if (IsCombatRoom(CurrentRoomType))
+            {
+                return CurrentRoomType == RoomType.BossRoom
+                    ? $"Demo Flow: Boss fight | {actionState} | Defeat the boss"
+                    : $"Demo Flow: Combat | {actionState} | Clear enemies";
+            }
+
+            if (CurrentRoomType == RoomType.SafeRoom)
+            {
+                return $"Demo Flow: Safe room | {actionState} | Rest point optional";
+            }
+
+            if (CurrentRoomType == RoomType.ShopRoom)
+            {
+                return $"Demo Flow: Supply room | {actionState} | Shop optional";
+            }
+
+            return $"Demo Flow: Explore | {actionState}";
         }
 
         private bool ShouldShowSupportRoomObjective()
