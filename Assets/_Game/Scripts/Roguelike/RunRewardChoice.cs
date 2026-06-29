@@ -6,7 +6,8 @@ namespace AICompanionRoguelike.Roguelike
         Companion,
         Counterplay,
         Survival,
-        Build
+        Build,
+        Relic
     }
 
     public readonly struct RunRewardChoice
@@ -54,6 +55,8 @@ namespace AICompanionRoguelike.Roguelike
                     return "Survival";
                 case RunRewardCategory.Build:
                     return "Build";
+                case RunRewardCategory.Relic:
+                    return "Relic";
                 default:
                     return "Reward";
             }

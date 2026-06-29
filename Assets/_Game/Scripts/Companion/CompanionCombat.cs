@@ -80,6 +80,7 @@ namespace AICompanionRoguelike.Companion
             float previousHealth = targetHealth.CurrentHealth;
             targetHealth.TakeDamage(damageInfo);
             float appliedDamage = Mathf.Max(0f, previousHealth - targetHealth.CurrentHealth);
+            TryMarkTargetForSyncRelic(targetHealth);
             cooldownTimer = EffectiveCooldown;
 
             if (movement != null && targetHealth != null && appliedDamage > 0f)
@@ -92,6 +93,23 @@ namespace AICompanionRoguelike.Companion
         {
             cooldown = Mathf.Max(0.05f, cooldown * Mathf.Max(0f, multiplier));
             cooldownTimer = Mathf.Min(cooldownTimer, EffectiveCooldown);
+        }
+
+        private static void TryMarkTargetForSyncRelic(HealthComponent targetHealth)
+        {
+            RunManager runManager = RunManager.FindActiveRunManager();
+            if (runManager == null || !runManager.HasRelic(RunRelicType.SyncMark) || targetHealth == null || targetHealth.IsDead)
+            {
+                return;
+            }
+
+            RelicSyncMarkTarget marker = targetHealth.GetComponent<RelicSyncMarkTarget>();
+            if (marker == null)
+            {
+                marker = targetHealth.gameObject.AddComponent<RelicSyncMarkTarget>();
+            }
+
+            marker.MarkByCompanion();
         }
 
         private static float GetGrowthRouteCooldownMultiplier()

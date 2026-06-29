@@ -14,6 +14,9 @@ namespace AICompanionRoguelike.Roguelike
         GuardianBuildUpgrade,
         SuppressorBuildUpgrade,
         LinkBuildUpgrade,
-        GrowthRouteSpecialization
+        GrowthRouteSpecialization,
+        RelicFirstAidCharm,
+        RelicSyncMark,
+        RelicFieldBackpack
     }
 }

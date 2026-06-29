@@ -11,6 +11,7 @@ namespace AICompanionRoguelike.UI
         [SerializeField] private bool showPanel = true;
 
         private readonly StringBuilder rewardBuilder = new StringBuilder(128);
+        private readonly StringBuilder relicBuilder = new StringBuilder(128);
 
         private void OnGUI()
         {
@@ -29,6 +30,7 @@ namespace AICompanionRoguelike.UI
             GUILayout.Label(BuildGrowthRouteLine(summary));
             GUILayout.Label(BuildMetaProgressionLine(summary));
             GUILayout.Label(BuildRewardLine(summary));
+            GUILayout.Label(BuildRelicLine(summary));
             GUILayout.Label(BuildRelationshipLine(summary));
             GUILayout.Label(BuildBossLine(summary));
             GUILayout.Label(BuildCompanionFeedbackLine(summary));
@@ -56,6 +58,29 @@ namespace AICompanionRoguelike.UI
             }
 
             return rewardBuilder.ToString();
+        }
+
+        private string BuildRelicLine(RunSessionSummary summary)
+        {
+            if (summary.RelicTitles == null || summary.RelicTitles.Length == 0)
+            {
+                return "Relics: none";
+            }
+
+            relicBuilder.Clear();
+            relicBuilder.Append("Relics: ");
+
+            for (int i = 0; i < summary.RelicTitles.Length; i++)
+            {
+                if (i > 0)
+                {
+                    relicBuilder.Append(" / ");
+                }
+
+                relicBuilder.Append(summary.RelicTitles[i]);
+            }
+
+            return relicBuilder.ToString();
         }
 
         private static string BuildRouteLine(RunSessionSummary summary)

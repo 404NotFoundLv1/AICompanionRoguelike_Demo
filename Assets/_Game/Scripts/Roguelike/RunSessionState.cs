@@ -15,6 +15,7 @@ namespace AICompanionRoguelike.Roguelike
         private static int lastRoomNumber;
         private static RoomType lastRoomType = RoomType.BattleRoom;
         private static readonly List<string> currentRewardTitles = new List<string>(8);
+        private static readonly List<string> currentRelicTitles = new List<string>(4);
         private static readonly List<RoomType> currentRoutePath = new List<RoomType>(8);
         private static readonly List<RoomModifierType> currentRouteModifiers = new List<RoomModifierType>(8);
         private static string companionFeedbackLine = string.Empty;
@@ -102,6 +103,16 @@ namespace AICompanionRoguelike.Roguelike
             currentRewardTitles.Add(rewardTitle);
         }
 
+        public static void RecordRelicCollected(string relicTitle)
+        {
+            if (string.IsNullOrWhiteSpace(relicTitle) || currentRelicTitles.Contains(relicTitle))
+            {
+                return;
+            }
+
+            currentRelicTitles.Add(relicTitle);
+        }
+
         public static void RecordCompanionBossFeedback(
             string feedbackLine,
             int trustDelta,
@@ -162,6 +173,7 @@ namespace AICompanionRoguelike.Roguelike
             lastRoomNumber = 0;
             lastRoomType = RoomType.BattleRoom;
             currentRewardTitles.Clear();
+            currentRelicTitles.Clear();
             currentRoutePath.Clear();
             currentRouteModifiers.Clear();
             companionFeedbackLine = string.Empty;
@@ -219,7 +231,8 @@ namespace AICompanionRoguelike.Roguelike
                 growthRouteLevel,
                 metaFragmentsEarned,
                 metaFragmentsTotal,
-                CompanionRunBuildState.CurrentTendency);
+                CompanionRunBuildState.CurrentTendency,
+                currentRelicTitles.ToArray());
         }
     }
 }

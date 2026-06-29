@@ -265,6 +265,59 @@ namespace AICompanionRoguelike.Roguelike
             int metaFragmentsEarned,
             int metaFragmentsTotal,
             CompanionSkillTendency companionTactic)
+            : this(
+                runId,
+                endReason,
+                roomsCleared,
+                lastRoomNumber,
+                lastRoomType,
+                rewardTitles,
+                finalTrust,
+                finalAffection,
+                companionFeedbackLine,
+                companionTrustDelta,
+                companionAffectionDelta,
+                bossSupportActivations,
+                bossWarningHits,
+                bossWarningDodges,
+                routePath,
+                routeModifiers,
+                growthRouteLabel,
+                growthRouteEffectLabel,
+                growthRouteSpecializationCount,
+                growthRouteLevel,
+                metaFragmentsEarned,
+                metaFragmentsTotal,
+                companionTactic,
+                Array.Empty<string>())
+        {
+        }
+
+        public RunSessionSummary(
+            int runId,
+            RunEndReason endReason,
+            int roomsCleared,
+            int lastRoomNumber,
+            RoomType lastRoomType,
+            string[] rewardTitles,
+            int finalTrust,
+            int finalAffection,
+            string companionFeedbackLine,
+            int companionTrustDelta,
+            int companionAffectionDelta,
+            int bossSupportActivations,
+            int bossWarningHits,
+            int bossWarningDodges,
+            RoomType[] routePath,
+            RoomModifierType[] routeModifiers,
+            string growthRouteLabel,
+            string growthRouteEffectLabel,
+            int growthRouteSpecializationCount,
+            int growthRouteLevel,
+            int metaFragmentsEarned,
+            int metaFragmentsTotal,
+            CompanionSkillTendency companionTactic,
+            string[] relicTitles = null)
         {
             RunId = runId;
             EndReason = endReason;
@@ -274,6 +327,7 @@ namespace AICompanionRoguelike.Roguelike
             RoutePath = routePath ?? Array.Empty<RoomType>();
             RouteModifiers = routeModifiers ?? Array.Empty<RoomModifierType>();
             RewardTitles = rewardTitles ?? Array.Empty<string>();
+            RelicTitles = relicTitles ?? Array.Empty<string>();
             FinalTrust = finalTrust;
             FinalAffection = finalAffection;
             CompanionFeedbackLine = companionFeedbackLine ?? string.Empty;
@@ -302,6 +356,7 @@ namespace AICompanionRoguelike.Roguelike
         public RoomType[] RoutePath { get; }
         public RoomModifierType[] RouteModifiers { get; }
         public string[] RewardTitles { get; }
+        public string[] RelicTitles { get; }
         public int FinalTrust { get; }
         public int FinalAffection { get; }
         public string CompanionFeedbackLine { get; }
@@ -320,6 +375,7 @@ namespace AICompanionRoguelike.Roguelike
         public bool HasSummary => RunId > 0 && EndReason != RunEndReason.None;
         public bool HasRelationship => FinalTrust >= 0 && FinalAffection >= 0;
         public bool HasCompanionFeedback => !string.IsNullOrEmpty(CompanionFeedbackLine);
+        public bool HasRelics => RelicTitles.Length > 0;
         public bool HasRoutePath => RoutePath.Length > 0;
         public bool HasRouteModifiers => RouteModifiers.Length > 0;
         public bool HasGrowthRouteSummary => !string.IsNullOrEmpty(GrowthRouteLabel);

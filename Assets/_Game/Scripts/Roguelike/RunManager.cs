@@ -104,6 +104,16 @@ namespace AICompanionRoguelike.Roguelike
         [Header("Supply Rooms")]
         [SerializeField, Min(0)] private int startingSupplies;
 
+        [Header("Relics")]
+        [SerializeField] private RunRelicType[] selectableRelics =
+        {
+            RunRelicType.FirstAidCharm,
+            RunRelicType.SyncMark,
+            RunRelicType.FieldBackpack
+        };
+        [SerializeField, Min(0f)] private float firstAidCharmHealAmount = RunRelicRules.DefaultFirstAidHealAmount;
+        [SerializeField, Min(1f)] private float syncMarkDamageMultiplier = RunRelicRules.DefaultSyncMarkDamageMultiplier;
+
         [Header("Meta Progression")]
         [SerializeField, Min(0f)] private float metaPlayerMaxHealthBonusPerLevel = 10f;
         [SerializeField, Min(0f)] private float metaPlayerDamageBonusPerLevel = 0.08f;
@@ -132,9 +142,11 @@ namespace AICompanionRoguelike.Roguelike
         private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(8);
         private readonly List<SafeRestChoice> currentRestChoices = new List<SafeRestChoice>(3);
+        private readonly List<RunRelicType> currentRelics = new List<RunRelicType>(4);
         private int currentSupplies;
         private string lastShopFeedbackMessage = string.Empty;
         private string lastSafeRestFeedbackMessage = string.Empty;
+        private string lastRelicFeedbackMessage = string.Empty;
         private RoomType currentRewardSourceRoomType = RoomType.BattleRoom;
         private bool shopRewardDraftOpen;
         private bool shopRewardPurchasedThisRoom;
@@ -187,6 +199,7 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
         public IReadOnlyList<SafeRestChoice> CurrentRestChoices => currentRestChoices;
+        public IReadOnlyList<RunRelicType> CurrentRelics => currentRelics;
         public int CurrentSupplies => currentSupplies;
         public int CurrentShopRewardCost => RunSupplyRules.ShopRewardCost();
         public bool IsCurrentRewardShopPurchase => waitingForReward && currentRewardSourceRoomType == RoomType.ShopRoom;
@@ -198,6 +211,9 @@ namespace AICompanionRoguelike.Roguelike
         public bool CanOpenSafeRestDraft => CanOpenCurrentSafeRestDraft();
         public bool HasUsedCurrentSafeRest => safeRestUsedThisRoom;
         public string LastSafeRestFeedbackMessage => lastSafeRestFeedbackMessage;
+        public string LastRelicFeedbackMessage => lastRelicFeedbackMessage;
+        public string CurrentRelicSummaryLabel => BuildCurrentRelicSummaryLabel();
+        public float SyncMarkDamageMultiplier => syncMarkDamageMultiplier;
         public string CurrentGrowthSummaryLabel => BuildCurrentGrowthSummaryLabel();
         public string CurrentGrowthRouteLabel => BuildCurrentGrowthRouteLabel();
         public bool HasActiveGrowthRoute => hasActiveGrowthRoute;
@@ -346,12 +362,14 @@ namespace AICompanionRoguelike.Roguelike
             currentSupplies = Mathf.Max(0, startingSupplies);
             lastShopFeedbackMessage = string.Empty;
             lastSafeRestFeedbackMessage = string.Empty;
+            lastRelicFeedbackMessage = string.Empty;
             currentRewardSourceRoomType = RoomType.BattleRoom;
             shopRewardDraftOpen = false;
             shopRewardPurchasedThisRoom = false;
             safeRestUsedThisRoom = false;
             currentRouteHistory.Clear();
             currentRouteModifierHistory.Clear();
+            currentRelics.Clear();
             ResetRewardGrowthCounts();
             ClearRewardChoices();
             ClearRestChoices();
@@ -454,8 +472,11 @@ namespace AICompanionRoguelike.Roguelike
 
             float restoredHealth = ApplyRoomEntryEffect(nextRoomType, currentRoomModifier);
             ApplyRoomModifierEntryEffect(currentRoomModifier);
+            ApplyRelicRoomEntryEffects(nextRoomType);
             SetRoomModifierFeedback(currentRoomModifier, restoredHealth);
-            SetRoomFeedback(BuildRoomFeedbackMessage(nextRoomType, restoredHealth, currentRoomModifier));
+            SetRoomFeedback(AppendRelicFeedback(
+                BuildRoomFeedbackMessage(nextRoomType, restoredHealth, currentRoomModifier),
+                lastRelicFeedbackMessage));
             if (currentRoomModifier == RoomModifierType.None)
             {
                 ShowCompanionSupportRoomFeedback(nextRoomType, restoredHealth);
@@ -658,6 +679,27 @@ namespace AICompanionRoguelike.Roguelike
             return false;
         }
 
+        public bool AcquireRelic(RunRelicType relicType)
+        {
+            if (HasRelic(relicType))
+            {
+                lastRelicFeedbackMessage = $"{RunRelicRules.GetTitle(relicType)} already owned.";
+                return false;
+            }
+
+            currentRelics.Add(relicType);
+            string title = RunRelicRules.GetTitle(relicType);
+            lastRelicFeedbackMessage = $"Relic acquired: {title}. {RunRelicRules.GetDescription(relicType)}";
+            RunSessionState.RecordRelicCollected(title);
+            ShowCompanionShopFeedback($"AI: Relic acquired - {RunRelicRules.GetHudLabel(relicType)}.");
+            return true;
+        }
+
+        public bool HasRelic(RunRelicType relicType)
+        {
+            return currentRelics.Contains(relicType);
+        }
+
         public bool OpenSafeRestDraft()
         {
             if (!CanOpenCurrentSafeRestDraft())
@@ -740,8 +782,17 @@ namespace AICompanionRoguelike.Roguelike
                     ShowCompanionShopFeedback("AI: I will remember this. We move together.");
                     break;
                 case SafeRestChoiceType.Prepare:
-                    currentSupplies++;
-                    lastSafeRestFeedbackMessage = $"Prepared: Supplies +1. Supplies {currentSupplies}.";
+                    int supplyGain = 1;
+                    if (HasRelic(RunRelicType.FieldBackpack))
+                    {
+                        supplyGain += RunRelicRules.FieldBackpackPrepareBonusSupplies;
+                        lastRelicFeedbackMessage = $"Field Backpack added +{RunRelicRules.FieldBackpackPrepareBonusSupplies} supply.";
+                    }
+
+                    currentSupplies += supplyGain;
+                    lastSafeRestFeedbackMessage = HasRelic(RunRelicType.FieldBackpack)
+                        ? $"Prepared: Supplies +{supplyGain} with Field Backpack. Supplies {currentSupplies}."
+                        : $"Prepared: Supplies +{supplyGain}. Supplies {currentSupplies}.";
                     ShowCompanionShopFeedback($"AI: Supplies prepared. We have {currentSupplies} now.");
                     break;
                 default:
@@ -920,6 +971,8 @@ namespace AICompanionRoguelike.Roguelike
                 candidates.Remove(buildRewardType.Value);
             }
 
+            TryAddRewardChoiceFromCategory(candidates, RunRewardCategory.Relic, targetCount);
+
             if (hasActiveGrowthRoute)
             {
                 TryAddRewardChoiceFromCategory(candidates, activeGrowthRouteCategory, targetCount);
@@ -1059,7 +1112,26 @@ namespace AICompanionRoguelike.Roguelike
                 AddRewardCandidate(candidates, RunRewardType.GrowthRouteSpecialization);
             }
 
+            AddRelicRewardCandidates(candidates);
+
             return candidates;
+        }
+
+        private void AddRelicRewardCandidates(List<RunRewardType> candidates)
+        {
+            RunRelicType[] relics = selectableRelics != null && selectableRelics.Length > 0
+                ? selectableRelics
+                : RunRelicRules.AllRelics;
+
+            for (int i = 0; i < relics.Length; i++)
+            {
+                if (HasRelic(relics[i]))
+                {
+                    continue;
+                }
+
+                AddRewardCandidate(candidates, RunRelicRules.GetRewardType(relics[i]));
+            }
         }
 
         private static void AddRewardCandidate(List<RunRewardType> candidates, RunRewardType reward)
@@ -1179,6 +1251,14 @@ namespace AICompanionRoguelike.Roguelike
                         CompanionSkillTendencyRules.GetBuildRewardDescription(CompanionSkillTendency.Link));
                 case RunRewardType.GrowthRouteSpecialization:
                     return CreateGrowthRouteSpecializationChoice();
+                case RunRewardType.RelicFirstAidCharm:
+                case RunRewardType.RelicSyncMark:
+                case RunRewardType.RelicFieldBackpack:
+                    RunRelicRules.TryGetRelicType(rewardType, out RunRelicType relicType);
+                    return new RunRewardChoice(
+                        rewardType,
+                        RunRelicRules.GetTitle(relicType),
+                        RunRelicRules.GetDescription(relicType));
                 default:
                     return new RunRewardChoice(rewardType, rewardType.ToString(), "未知奖励。");
             }
@@ -1204,6 +1284,10 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardType.SuppressorBuildUpgrade:
                 case RunRewardType.LinkBuildUpgrade:
                     return RunRewardCategory.Build;
+                case RunRewardType.RelicFirstAidCharm:
+                case RunRewardType.RelicSyncMark:
+                case RunRewardType.RelicFieldBackpack:
+                    return RunRewardCategory.Relic;
                 default:
                     return RunRewardCategory.Player;
             }
@@ -1239,6 +1323,11 @@ namespace AICompanionRoguelike.Roguelike
                     return "build-link";
                 case RunRewardType.GrowthRouteSpecialization:
                     return $"route-special-{RunRewardChoice.GetCategoryLabel(GetRewardCategory(rewardType)).ToLowerInvariant()}";
+                case RunRewardType.RelicFirstAidCharm:
+                case RunRewardType.RelicSyncMark:
+                case RunRewardType.RelicFieldBackpack:
+                    RunRelicRules.TryGetRelicType(rewardType, out RunRelicType relicType);
+                    return $"relic-{relicType.ToString().ToLowerInvariant()}";
                 default:
                     return "reward";
             }
@@ -1325,6 +1414,11 @@ namespace AICompanionRoguelike.Roguelike
                     return BuildBuildLevelPreview(CompanionSkillTendency.Link);
                 case RunRewardType.GrowthRouteSpecialization:
                     return BuildGrowthRouteSpecializationPreviewLine();
+                case RunRewardType.RelicFirstAidCharm:
+                case RunRewardType.RelicSyncMark:
+                case RunRewardType.RelicFieldBackpack:
+                    RunRelicRules.TryGetRelicType(rewardType, out RunRelicType relicType);
+                    return $"Relic: {RunRelicRules.GetHudLabel(relicType)}.";
                 default:
                     return string.Empty;
             }
@@ -1447,6 +1541,15 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardType.GrowthRouteSpecialization:
                     ApplyGrowthRouteSpecializationReward();
                     break;
+                case RunRewardType.RelicFirstAidCharm:
+                case RunRewardType.RelicSyncMark:
+                case RunRewardType.RelicFieldBackpack:
+                    if (RunRelicRules.TryGetRelicType(rewardType, out RunRelicType relicType))
+                    {
+                        AcquireRelic(relicType);
+                    }
+
+                    break;
             }
 
             if (IsCounterplayReward(rewardType))
@@ -1507,6 +1610,29 @@ namespace AICompanionRoguelike.Roguelike
         private float ApplyRoomEntryEffect(RoomType roomType, RoomModifierType roomModifier)
         {
             return 0f;
+        }
+
+        private float ApplyRelicRoomEntryEffects(RoomType roomType)
+        {
+            lastRelicFeedbackMessage = string.Empty;
+
+            if (!HasRelic(RunRelicType.FirstAidCharm) || !IsCombatRoom(roomType))
+            {
+                return 0f;
+            }
+
+            float restoredHealth = HealPlayer(firstAidCharmHealAmount);
+            lastRelicFeedbackMessage = restoredHealth > 0f
+                ? $"First Aid Charm restored {restoredHealth:0} HP."
+                : "First Aid Charm ready, but HP is full.";
+            return restoredHealth;
+        }
+
+        private static bool IsCombatRoom(RoomType roomType)
+        {
+            return roomType == RoomType.BattleRoom
+                || roomType == RoomType.EliteRoom
+                || roomType == RoomType.BossRoom;
         }
 
         private void ApplyRoomModifierEntryEffect(RoomModifierType roomModifier)
@@ -1575,6 +1701,13 @@ namespace AICompanionRoguelike.Roguelike
                 : $"{baseMessage} Modifier {modifierLine}";
         }
 
+        private static string AppendRelicFeedback(string baseMessage, string relicLine)
+        {
+            return string.IsNullOrWhiteSpace(relicLine)
+                ? baseMessage
+                : $"{baseMessage} Relic {relicLine}";
+        }
+
         private static string AppendTacticFeedback(string baseMessage)
         {
             string tacticLine = CompanionSkillTendencyRules.GetRunFeedbackLine(CompanionRunBuildState.CurrentTendency);
@@ -1586,32 +1719,37 @@ namespace AICompanionRoguelike.Roguelike
         private string BuildRoomClearedFeedbackMessage(RoomType roomType, int roomNumber)
         {
             string supplyLine = BuildRoomClearSupplyFeedback(roomType);
+            string feedback;
             if (ShouldCompleteRun(roomNumber))
             {
-                return AppendSupplyFeedback($"Room Clear - room #{roomNumber} cleared. Run complete.", supplyLine);
+                feedback = AppendSupplyFeedback($"Room Clear - room #{roomNumber} cleared. Run complete.", supplyLine);
+                return AppendRelicFeedback(feedback, lastRelicFeedbackMessage);
             }
 
             if (IsNextRoomBossRoom())
             {
-                return AppendSupplyFeedback(
+                feedback = AppendSupplyFeedback(
                     $"Room Clear - room #{roomNumber} cleared. Find the final portal to challenge the boss.",
                     supplyLine);
+                return AppendRelicFeedback(feedback, lastRelicFeedbackMessage);
             }
 
             if (ShouldOfferReward(roomType))
             {
-                return AppendTacticClearFeedback(AppendSupplyFeedback(
+                feedback = AppendTacticClearFeedback(AppendSupplyFeedback(
                     $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.",
                     supplyLine));
+                return AppendRelicFeedback(feedback, lastRelicFeedbackMessage);
             }
 
-            return useRoomChoicePortal
+            feedback = useRoomChoicePortal
                 ? AppendTacticClearFeedback(AppendSupplyFeedback(
                     $"Room Clear - room #{roomNumber} cleared. Find the next-room portal to choose a route.",
                     supplyLine))
                 : AppendTacticClearFeedback(AppendSupplyFeedback(
                     $"Room Clear - room #{roomNumber} cleared. Press {nextRoomKey} to enter the next room.",
                     supplyLine));
+            return AppendRelicFeedback(feedback, lastRelicFeedbackMessage);
         }
 
         private string BuildRoomClearSupplyFeedback(RoomType roomType)
@@ -2004,6 +2142,8 @@ namespace AICompanionRoguelike.Roguelike
                 case RunRewardCategory.Build:
                     buildGrowthCount++;
                     break;
+                case RunRewardCategory.Relic:
+                    break;
             }
 
             EvaluateGrowthRoute();
@@ -2012,6 +2152,22 @@ namespace AICompanionRoguelike.Roguelike
         private string BuildCurrentGrowthSummaryLabel()
         {
             return $"Growth: Player {playerGrowthCount} | AI {companionGrowthCount} | Counterplay {counterplayGrowthCount} | Survival {survivalGrowthCount} | Build {buildGrowthCount}";
+        }
+
+        private string BuildCurrentRelicSummaryLabel()
+        {
+            if (currentRelics.Count == 0)
+            {
+                return "Relics: none";
+            }
+
+            string[] labels = new string[currentRelics.Count];
+            for (int i = 0; i < currentRelics.Count; i++)
+            {
+                labels[i] = RunRelicRules.GetHudLabel(currentRelics[i]);
+            }
+
+            return $"Relics: {string.Join(" / ", labels)}";
         }
 
         private void EvaluateGrowthRoute()

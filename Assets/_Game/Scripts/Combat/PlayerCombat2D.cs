@@ -84,6 +84,11 @@ namespace AICompanionRoguelike.Combat
             int hitCount = Physics2D.OverlapBox(center, attackBoxSize, 0f, targetFilter, hitBuffer);
             branchChoiceBuff = branchChoiceBuff != null ? branchChoiceBuff : GetComponent<PlayerBranchChoiceBuff>();
             float outgoingMultiplier = branchChoiceBuff != null ? branchChoiceBuff.OutgoingDamageMultiplier : 1f;
+            RunManager runManager = RunManager.FindActiveRunManager();
+            bool hasSyncMark = runManager != null && runManager.HasRelic(RunRelicType.SyncMark);
+            float syncMarkMultiplier = runManager != null
+                ? runManager.SyncMarkDamageMultiplier
+                : RunRelicRules.DefaultSyncMarkDamageMultiplier;
             DamageInfo damageInfo = new DamageInfo(
                 damage * outgoingMultiplier * GetGrowthRouteDamageMultiplier(),
                 DamageSourceType.Player,
@@ -114,6 +119,11 @@ namespace AICompanionRoguelike.Combat
                     hitDamageInfo = counterplayFeedbacks[feedbackIndex].ModifyOutgoingDamage(health, hitDamageInfo);
                 }
 
+                hitDamageInfo = RunRelicRules.ModifyPlayerOutgoingDamage(
+                    health,
+                    hitDamageInfo,
+                    hasSyncMark,
+                    syncMarkMultiplier);
                 health.TakeDamage(hitDamageInfo);
                 TargetHit?.Invoke(this, health, hitDamageInfo);
                 for (int feedbackIndex = 0; feedbackIndex < counterplayFeedbacks.Length; feedbackIndex++)
