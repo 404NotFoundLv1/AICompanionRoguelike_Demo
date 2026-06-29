@@ -175,7 +175,7 @@ namespace AICompanionRoguelike.Roguelike
                 case RoomModifierType.Ambush:
                     return "Ambush enemies show violet markers, with one extra enemy joining from the side lane for +1 reward option.";
                 case RoomModifierType.Recovery:
-                    return $"A green healing field stabilized the room and restored {restoredHealth:0} HP.";
+                    return "A green healing field marks the rest point. Resting here restores 50% more HP.";
                 case RoomModifierType.BondSignal:
                     return $"The AI caught a Bond Signal pulse. Trust +{GetTrustDelta(modifierType)}, Affection +{GetAffectionDelta(modifierType)}, reward draft +1 option.";
                 default:

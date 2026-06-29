@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 523e332607109f240b32f18eff5e3f74, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.SupplyShopInteractable
   runManager: {fileID: 736547105}
   interactKey: 19
@@ -296,7 +296,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d30f70a8d704d20488d81440634357de, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Memory.CompanionRelationship
 --- !u!1 &505831149
 GameObject:
@@ -327,7 +327,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a69477c7034704d4f9413f918a2f4eae, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.SafeRestInteractable
   runManager: {fileID: 736547105}
   interactKey: 19
@@ -498,8 +498,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
@@ -625,8 +625,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 073797afb82c5a1438f328866b10b3f0, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_ComponentVersion: 2
   m_LightType: 4
   m_BlendStyleIndex: 0
@@ -712,7 +712,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7143c762bf058174fbc5292a678a6d79, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.RunManager
   roomManager: {fileID: 736547106}
   branchEventRoomController: {fileID: 736547108}
@@ -787,7 +787,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4547876da971a784e8620600f2c3c626, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.RoomManager
   enemyPrefab: {fileID: 3209252624947422616, guid: f3ac8d31084f2ed4cac1be95a88d49cc, type: 3}
   playerTarget: {fileID: 1337357273}
@@ -847,7 +847,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ea745a0b3302188418db1017fd9dc114, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.BranchEventRoomController
   roomManager: {fileID: 736547106}
   player: {fileID: 1337357273}
@@ -891,7 +891,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d0609c62b7964a63b51f6bbd3e53be43, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionBossPostFightSettlement
   roomManager: {fileID: 736547106}
   playerHealth: {fileID: 1337357274}
@@ -1229,7 +1229,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 240238235fb536f4fa38688779c0e06d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Roguelike.NextRoomChoicePortal
   runManager: {fileID: 736547105}
   interactKey: 19
@@ -1389,7 +1389,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8dc0cbb6d18963646b6ced6f141386a3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.StatusFeedbackUI
   playerHealth: {fileID: 1337357274}
   branchChoiceBuff: {fileID: 1337357278}
@@ -1432,7 +1432,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b7fbbbf6c5baf6a49b1ea08165918e1d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.RoomRewardChoiceUI
   runManager: {fileID: 736547105}
   panelRect:
@@ -1452,7 +1452,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a9476891bfb8a474d899fe4e642e134e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.QTEPromptUI
   qteManager: {fileID: 1845329742}
   promptRect:
@@ -1486,7 +1486,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3748eef6baf34f098561519ea7d47163, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.CompanionBuildChoiceUI
   panelRect:
     serializedVersion: 2
@@ -1538,7 +1538,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: efdfed53a2c0694469e2bb8ab2984710, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Character.PlayerMovement2D
   inputReader: {fileID: 1337357269}
   health: {fileID: 1337357274}
@@ -1565,7 +1565,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c2fb66ed16b5f2641945fa1db76585a9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Character.PlayerInputReader
   leftKey: 15
   alternateLeftKey: 61
@@ -1736,7 +1736,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0a9441f9c272f9c4d94eb9d39afce718, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.HealthComponent
   maxHealth: 100
   destroyOnDeath: 0
@@ -1750,7 +1750,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2544d0deb3a9f74478d1d64fe7d73cdc, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerCombat2D
   inputReader: {fileID: 1337357269}
   movement: {fileID: 1337357268}
@@ -1774,7 +1774,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d9554bfbc15ef1540a584eb3b3a4c13d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.WorldHealthBar2D
   health: {fileID: 1337357274}
   barRoot: {fileID: 1157175794}
@@ -1798,7 +1798,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 08e300237f88ad94baa8ac0444cc981e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Memory.BondRescueSystem
   companionRelationship: {fileID: 313638958}
   runManager: {fileID: 736547105}
@@ -1816,7 +1816,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b551f34f92ebc4c4c8e2ce61c8711b9e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerBranchChoiceBuff
   remainingDuration: 0
   outgoingDamageMultiplier: 1
@@ -1832,7 +1832,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e72341dc786f9364e979a6a122ac9319, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Home.ReturnHomeOnDeath
   homeScenePath: Assets/_Game/Scenes/HomeScene.unity
   logTransition: 1
@@ -1846,7 +1846,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c20b333692125184198bae726e13d5b9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerBossSupportShield
   remainingDuration: 0
   incomingDamageMultiplier: 0.5
@@ -1868,7 +1868,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c5ad6428e7d24cb4a921a062ce1e6428, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Combat.PlayerCounterplayFeedback
   health: {fileID: 1337357274}
   movement: {fileID: 1337357268}
@@ -1909,7 +1909,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 882132790e799364fb38228daefcf952, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.BossStatusUI
   roomManager: {fileID: 736547106}
   barRect:
@@ -2247,7 +2247,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 627fc0a9ad0848e4ab1d578d8104367f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.SafeRestChoiceUI
   runManager: {fileID: 736547105}
   panelRect:
@@ -2390,7 +2390,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 05b540b49fd797548bdb90cebd00176c, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.QTE.QTEManager
   defaultDuration: 2
   defaultExpectedKey: 19
@@ -2421,11 +2421,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 699181438482740380, guid: 90809396b57f64a4b865add328224211, type: 3}
       propertyPath: target
-      value:
+      value: 
       objectReference: {fileID: 1337357273}
     - target: {fileID: 699181438482740380, guid: 90809396b57f64a4b865add328224211, type: 3}
       propertyPath: targetMovement
-      value:
+      value: 
       objectReference: {fileID: 1337357268}
     - target: {fileID: 1729427289006278405, guid: 90809396b57f64a4b865add328224211, type: 3}
       propertyPath: m_Name
@@ -2497,7 +2497,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d42ecd7644a9efb40b495983322d0cb5, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.Companion.CompanionBossSupport
   player: {fileID: 1337357273}
   relationship: {fileID: 313638958}
@@ -2522,7 +2522,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e3712a570fceff44984998d4e3d39d3f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AICompanionRoguelike.UI.CompanionBossSupportBubbleUI
   support: {fileID: 4315823804941768602}
   target: {fileID: 313638954}

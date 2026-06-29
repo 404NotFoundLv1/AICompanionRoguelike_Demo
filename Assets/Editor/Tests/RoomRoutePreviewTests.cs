@@ -88,9 +88,9 @@ namespace AICompanionRoguelike.Tests
         }
 
         [Test]
-        public void SafeRoomPreviewEffectHealsPlayerOnEntry()
+        public void SafeRoomPreviewEffectWaitsForRestPointOnEntry()
         {
-            GameObject runObject = new GameObject("RunManagerSafeRoomHealTest");
+            GameObject runObject = new GameObject("RunManagerSafeRoomRestTest");
             GameObject playerObject = new GameObject("Player");
 
             try
@@ -103,7 +103,8 @@ namespace AICompanionRoguelike.Tests
 
                 Invoke(runManager, "AdvanceToRoom", RoomType.SafeRoom);
 
-                Assert.Greater(health.CurrentHealth, 40f);
+                Assert.AreEqual(40f, health.CurrentHealth, 0.01f);
+                Assert.That(ReadProperty(runManager, "LastRoomFeedbackMessage") as string, Does.Contain("rest point"));
             }
             finally
             {
@@ -172,7 +173,7 @@ namespace AICompanionRoguelike.Tests
                 string safeFeedback = ReadProperty(runManager, "LastRoomFeedbackMessage") as string;
 
                 Assert.That(safeFeedback, Does.Contain("Safe Room"));
-                Assert.That(safeFeedback, Does.Contain("restored"));
+                Assert.That(safeFeedback, Does.Contain("rest point"));
 
                 Assert.True(runManager.IsWaitingForNextRoom, "Safe room should immediately return to route selection.");
                 runManager.AdvanceToSelectedRoom(RoomType.ShopRoom);

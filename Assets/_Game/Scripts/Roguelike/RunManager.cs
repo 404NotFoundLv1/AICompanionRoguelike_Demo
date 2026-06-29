@@ -131,11 +131,15 @@ namespace AICompanionRoguelike.Roguelike
         private readonly List<RoomChoicePreview> currentRoomChoicePreviews = new List<RoomChoicePreview>(4);
         private readonly List<RouteMapNode> currentRouteMapNodes = new List<RouteMapNode>(8);
         private readonly List<RunRewardChoice> currentRewardChoices = new List<RunRewardChoice>(8);
+        private readonly List<SafeRestChoice> currentRestChoices = new List<SafeRestChoice>(3);
         private int currentSupplies;
         private string lastShopFeedbackMessage = string.Empty;
+        private string lastSafeRestFeedbackMessage = string.Empty;
         private RoomType currentRewardSourceRoomType = RoomType.BattleRoom;
         private bool shopRewardDraftOpen;
         private bool shopRewardPurchasedThisRoom;
+        private bool waitingForRest;
+        private bool safeRestUsedThisRoom;
         private int playerGrowthCount;
         private int companionGrowthCount;
         private int counterplayGrowthCount;
@@ -161,6 +165,9 @@ namespace AICompanionRoguelike.Roguelike
         public event Action<RunManager, IReadOnlyList<RunRewardChoice>> RewardChoicesPrepared;
         public event Action<RunManager, RunRewardChoice> RewardSelected;
         public event Action<RunManager> RewardChoicesCleared;
+        public event Action<RunManager, IReadOnlyList<SafeRestChoice>> RestChoicesPrepared;
+        public event Action<RunManager, SafeRestChoice> RestChoiceSelected;
+        public event Action<RunManager> RestChoicesCleared;
 
         public int CurrentRoomNumber => Mathf.Max(0, roomIndex + 1);
         public RoomType CurrentRoomType => roomManager != null ? roomManager.CurrentRoomType : RoomType.BattleRoom;
@@ -179,6 +186,7 @@ namespace AICompanionRoguelike.Roguelike
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
         public IReadOnlyList<RouteMapNode> CurrentRouteMapNodes => currentRouteMapNodes;
         public IReadOnlyList<RunRewardChoice> CurrentRewardChoices => currentRewardChoices;
+        public IReadOnlyList<SafeRestChoice> CurrentRestChoices => currentRestChoices;
         public int CurrentSupplies => currentSupplies;
         public int CurrentShopRewardCost => RunSupplyRules.ShopRewardCost();
         public bool IsCurrentRewardShopPurchase => waitingForReward && currentRewardSourceRoomType == RoomType.ShopRoom;
@@ -186,6 +194,10 @@ namespace AICompanionRoguelike.Roguelike
         public bool HasPurchasedCurrentShopReward => shopRewardPurchasedThisRoom;
         public string CurrentShopAffordabilityLabel => RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies);
         public string LastShopFeedbackMessage => lastShopFeedbackMessage;
+        public bool IsWaitingForRest => waitingForRest;
+        public bool CanOpenSafeRestDraft => CanOpenCurrentSafeRestDraft();
+        public bool HasUsedCurrentSafeRest => safeRestUsedThisRoom;
+        public string LastSafeRestFeedbackMessage => lastSafeRestFeedbackMessage;
         public string CurrentGrowthSummaryLabel => BuildCurrentGrowthSummaryLabel();
         public string CurrentGrowthRouteLabel => BuildCurrentGrowthRouteLabel();
         public bool HasActiveGrowthRoute => hasActiveGrowthRoute;
@@ -325,6 +337,7 @@ namespace AICompanionRoguelike.Roguelike
             roomIndex = -1;
             waitingForNextRoom = false;
             waitingForReward = false;
+            waitingForRest = false;
             runCompleted = false;
             SetRoomFeedback(string.Empty);
             ClearRoomModifierFeedback();
@@ -332,13 +345,16 @@ namespace AICompanionRoguelike.Roguelike
             pendingSelectedRoomModifier = RoomModifierType.None;
             currentSupplies = Mathf.Max(0, startingSupplies);
             lastShopFeedbackMessage = string.Empty;
+            lastSafeRestFeedbackMessage = string.Empty;
             currentRewardSourceRoomType = RoomType.BattleRoom;
             shopRewardDraftOpen = false;
             shopRewardPurchasedThisRoom = false;
+            safeRestUsedThisRoom = false;
             currentRouteHistory.Clear();
             currentRouteModifierHistory.Clear();
             ResetRewardGrowthCounts();
             ClearRewardChoices();
+            ClearRestChoices();
             ClearPreparedRoomChoices();
             ApplyMetaProgressionUpgrades();
 
@@ -416,15 +432,22 @@ namespace AICompanionRoguelike.Roguelike
             currentRoomModifier = nextRoomModifier;
             shopRewardDraftOpen = false;
             shopRewardPurchasedThisRoom = false;
+            waitingForRest = false;
+            safeRestUsedThisRoom = false;
             if (nextRoomType != RoomType.ShopRoom)
             {
                 lastShopFeedbackMessage = string.Empty;
+            }
+            if (nextRoomType != RoomType.SafeRoom)
+            {
+                lastSafeRestFeedbackMessage = string.Empty;
             }
 
             roomIndex++;
             waitingForNextRoom = false;
             waitingForReward = false;
             ClearRewardChoices();
+            ClearRestChoices();
             ClearPreparedRoomChoices();
 
             int roomNumber = roomIndex + 1;
@@ -457,7 +480,9 @@ namespace AICompanionRoguelike.Roguelike
 
             waitingForNextRoom = false;
             waitingForReward = false;
+            waitingForRest = false;
             ClearRewardChoices();
+            ClearRestChoices();
             ClearPreparedRoomChoices();
             branchEventRoomController.BeginBranchEventRoom(CurrentRoomNumber, CurrentRoomType);
 
@@ -633,6 +658,134 @@ namespace AICompanionRoguelike.Roguelike
             return false;
         }
 
+        public bool OpenSafeRestDraft()
+        {
+            if (!CanOpenCurrentSafeRestDraft())
+            {
+                if (CurrentRoomType == RoomType.SafeRoom && safeRestUsedThisRoom)
+                {
+                    lastSafeRestFeedbackMessage = "Rest point already used. Continue to the next route.";
+                    SetRoomFeedback(lastSafeRestFeedbackMessage);
+                }
+
+                return false;
+            }
+
+            waitingForRest = true;
+            waitingForNextRoom = false;
+            waitingForReward = false;
+            ClearRewardChoices();
+            ClearPreparedRoomChoices();
+            PrepareSafeRestChoices();
+            SetRoomFeedback("Safe Rest Point: choose one rest option or press Esc to close. You can continue the route after choosing.");
+            ShowCompanionShopFeedback("AI: Rest point is ready. Choose what we need before moving on.");
+            return true;
+        }
+
+        public void CloseSafeRestDraft()
+        {
+            if (!waitingForRest)
+            {
+                return;
+            }
+
+            waitingForRest = false;
+            ClearRestChoices();
+            lastSafeRestFeedbackMessage = $"Skipped rest point. Supplies {currentSupplies}.";
+            SetRoomFeedback($"Safe Rest Point: {lastSafeRestFeedbackMessage} Choose the next route when ready.");
+            ShowCompanionShopFeedback("AI: We can skip rest for now. The route is open.");
+            BeginNextRoomChoiceFlow();
+        }
+
+        public void SelectSafeRestChoice(int index)
+        {
+            if (!waitingForRest || index < 0 || index >= currentRestChoices.Count)
+            {
+                return;
+            }
+
+            SafeRestChoice choice = currentRestChoices[index];
+            ApplySafeRestChoice(choice);
+            safeRestUsedThisRoom = true;
+            waitingForRest = false;
+            ClearRestChoices();
+
+            RestChoiceSelected?.Invoke(this, choice);
+            BeginNextRoomChoiceFlow();
+        }
+
+        private bool CanOpenCurrentSafeRestDraft()
+        {
+            return !runCompleted
+                && CurrentRoomType == RoomType.SafeRoom
+                && !waitingForRest
+                && !safeRestUsedThisRoom;
+        }
+
+        private void ApplySafeRestChoice(SafeRestChoice choice)
+        {
+            float restoredHealth = 0f;
+
+            switch (choice.ChoiceType)
+            {
+                case SafeRestChoiceType.Rest:
+                    restoredHealth = HealPlayer(GetSafeRestHealAmount());
+                    lastSafeRestFeedbackMessage = $"Rested: recovered {restoredHealth:0} HP. Supplies {currentSupplies}.";
+                    SetRoomModifierFeedback(currentRoomModifier, restoredHealth);
+                    ShowCompanionShopFeedback($"AI: Rest complete. HP recovered {restoredHealth:0}; we can move again.");
+                    break;
+                case SafeRestChoiceType.Talk:
+                    ApplySafeRestTalk();
+                    lastSafeRestFeedbackMessage = "Talked with AI: Trust +1, Affection +1, Reliable memory +1.";
+                    ShowCompanionShopFeedback("AI: I will remember this. We move together.");
+                    break;
+                case SafeRestChoiceType.Prepare:
+                    currentSupplies++;
+                    lastSafeRestFeedbackMessage = $"Prepared: Supplies +1. Supplies {currentSupplies}.";
+                    ShowCompanionShopFeedback($"AI: Supplies prepared. We have {currentSupplies} now.");
+                    break;
+                default:
+                    lastSafeRestFeedbackMessage = "Rest point used.";
+                    break;
+            }
+
+            SetRoomFeedback($"Safe Rest Point: {lastSafeRestFeedbackMessage} Choose the next route when ready.");
+            if (logRunMessages)
+            {
+                Debug.Log($"Safe rest selected: {choice.Title}. {lastSafeRestFeedbackMessage}", this);
+            }
+        }
+
+        private float HealPlayer(float healAmount)
+        {
+            GameObject player = GameObject.Find("Player");
+            HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
+            if (health == null)
+            {
+                return 0f;
+            }
+
+            float before = health.CurrentHealth;
+            health.Heal(healAmount);
+            return health.CurrentHealth - before;
+        }
+
+        private float GetSafeRestHealAmount()
+        {
+            return safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(currentRoomModifier);
+        }
+
+        private static void ApplySafeRestTalk()
+        {
+            CompanionRelationship relationship = UnityEngine.Object.FindAnyObjectByType<CompanionRelationship>();
+            if (relationship == null)
+            {
+                return;
+            }
+
+            relationship.ApplyMemoryEvent("Safe Room Talk", 1, 1, RelationshipMemoryTag.Reliable);
+        }
+
         private void BeginNextRoomChoiceFlow()
         {
             if (runCompleted)
@@ -694,7 +847,9 @@ namespace AICompanionRoguelike.Roguelike
             runCompleted = true;
             waitingForNextRoom = false;
             waitingForReward = false;
+            waitingForRest = false;
             ClearRewardChoices();
+            ClearRestChoices();
             ClearPreparedRoomChoices();
 
             CompanionBossPostFightSettlement postFightSettlement = FindAnyObjectByType<CompanionBossPostFightSettlement>();
@@ -800,6 +955,29 @@ namespace AICompanionRoguelike.Roguelike
             RewardChoicesPrepared?.Invoke(this, currentRewardChoices);
         }
 
+        private void PrepareSafeRestChoices()
+        {
+            currentRestChoices.Clear();
+            float healAmount = GetSafeRestHealAmount();
+            currentRestChoices.Add(new SafeRestChoice(
+                SafeRestChoiceType.Rest,
+                "Rest",
+                $"Recover up to {healAmount:0} HP.",
+                "Stabilize the player before the next fight."));
+            currentRestChoices.Add(new SafeRestChoice(
+                SafeRestChoiceType.Talk,
+                "Talk",
+                "Talk with the AI companion. Trust +1, Affection +1, Reliable memory +1.",
+                "Strengthen the AI relationship instead of healing."));
+            currentRestChoices.Add(new SafeRestChoice(
+                SafeRestChoiceType.Prepare,
+                "Prepare",
+                "Prepare supplies for the next route. Supplies +1.",
+                "Trade recovery for more shop flexibility later."));
+
+            RestChoicesPrepared?.Invoke(this, currentRestChoices);
+        }
+
         private int GetRewardChoiceTargetCount(RoomType sourceRoomType, int candidateCount)
         {
             return GetRewardChoiceTargetCount(sourceRoomType, currentRoomModifier, candidateCount);
@@ -840,6 +1018,17 @@ namespace AICompanionRoguelike.Roguelike
             currentRewardChoices.Clear();
             currentRewardSourceRoomType = RoomType.BattleRoom;
             RewardChoicesCleared?.Invoke(this);
+        }
+
+        private void ClearRestChoices()
+        {
+            if (currentRestChoices.Count == 0)
+            {
+                return;
+            }
+
+            currentRestChoices.Clear();
+            RestChoicesCleared?.Invoke(this);
         }
 
         private List<RunRewardType> BuildRewardCandidateList()
@@ -1317,29 +1506,7 @@ namespace AICompanionRoguelike.Roguelike
 
         private float ApplyRoomEntryEffect(RoomType roomType, RoomModifierType roomModifier)
         {
-            if (roomType != RoomType.SafeRoom)
-            {
-                return 0f;
-            }
-
-            GameObject player = GameObject.Find("Player");
-            HealthComponent health = player != null ? player.GetComponent<HealthComponent>() : null;
-            if (health == null)
-            {
-                return 0f;
-            }
-
-            float before = health.CurrentHealth;
-            float healAmount = safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(roomModifier);
-            health.Heal(healAmount);
-            float restoredHealth = health.CurrentHealth - before;
-
-            if (logRunMessages && restoredHealth > 0f)
-            {
-                Debug.Log($"Safe room restored {restoredHealth:0} HP.", this);
-            }
-
-            return restoredHealth;
+            return 0f;
         }
 
         private void ApplyRoomModifierEntryEffect(RoomModifierType roomModifier)
@@ -1379,7 +1546,7 @@ namespace AICompanionRoguelike.Roguelike
                         modifierLine);
                 case RoomType.SafeRoom:
                     return AppendModifierFeedback(
-                        $"Safe Room: restored {restoredHealth:0} HP. No enemies here. Supplies {currentSupplies}.",
+                        $"Safe Room: no enemies here. Move to the rest point and interact to recover, talk, or prepare. You can also skip through the next-route portal. Supplies {currentSupplies}.",
                         modifierLine);
                 case RoomType.ShopRoom:
                     return AppendModifierFeedback(
@@ -1533,9 +1700,7 @@ namespace AICompanionRoguelike.Roguelike
             switch (roomType)
             {
                 case RoomType.SafeRoom:
-                    return restoredHealth > 0f
-                        ? $"AI: Good place to recover. HP restored {restoredHealth:0}; supplies stay at {currentSupplies}."
-                        : $"AI: We can recover our rhythm here. supplies stay at {currentSupplies}.";
+                    return $"AI: We can recover at the rest point, talk, or prepare. supplies stay at {currentSupplies}.";
                 case RoomType.ShopRoom:
                     return $"AI: Check supplies before buying. {RunSupplyRules.BuildShopAffordabilityLabel(currentSupplies).ToLowerInvariant()}.";
                 default:
@@ -2283,8 +2448,8 @@ namespace AICompanionRoguelike.Roguelike
                         roomType,
                         "Safe Room",
                         "Threat: safe, no enemies.",
-                        $"Reward: restore {safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(modifier):0} HP.",
-                        $"Route: recover, then pick the next path. Supplies {currentSupplies} are saved for shops.",
+                        $"Rest Point: choose one option; Rest can restore {safeRoomHealAmount * RoomModifierRules.GetSafeHealMultiplier(modifier):0} HP.",
+                        $"Route: optional rest point, then pick the next path. Supplies {currentSupplies} are saved for shops.",
                         modifierPreview);
                 case RoomType.ShopRoom:
                     return CreateModifiedRoomChoicePreview(

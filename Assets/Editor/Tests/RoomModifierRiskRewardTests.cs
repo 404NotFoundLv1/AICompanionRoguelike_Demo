@@ -56,7 +56,7 @@ namespace AICompanionRoguelike.Tests
         }
 
         [Test]
-        public void SelectingRecoverySafeRoomAppliesStrongerHealAndRecordsModifier()
+        public void SelectingRecoverySafeRoomRestAppliesStrongerHealAndRecordsModifier()
         {
             GameObject runObject = new GameObject("RunManagerRecoveryModifierTest");
             GameObject playerObject = new GameObject("Player");
@@ -85,9 +85,15 @@ namespace AICompanionRoguelike.Tests
                 int safeIndex = FindChoiceIndex(runManager, RoomType.SafeRoom);
                 Invoke(runManager, "AdvanceToSelectedRoom", safeIndex);
 
-                Assert.GreaterOrEqual(health.CurrentHealth, 77f);
+                Assert.AreEqual(40f, health.CurrentHealth, 0.01f);
                 AssertModifierNamed(ReadProperty(runManager, "CurrentRoomModifier"), "Recovery");
                 Assert.That(ReadProperty(runManager, "LastRoomFeedbackMessage") as string, Does.Contain("Recovery"));
+
+                Assert.True(runManager.OpenSafeRestDraft());
+                runManager.SelectSafeRestChoice(0);
+
+                Assert.GreaterOrEqual(health.CurrentHealth, 77f);
+                Assert.That(ReadProperty(runManager, "LastSafeRestFeedbackMessage") as string, Does.Contain("Rested"));
             }
             finally
             {
