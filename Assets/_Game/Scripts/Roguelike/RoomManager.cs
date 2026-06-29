@@ -65,6 +65,7 @@ namespace AICompanionRoguelike.Roguelike
         public int CurrentRoomNumber { get; private set; }
         public bool IsRoomActive { get; private set; }
         public bool IsRoomCleared { get; private set; }
+        public int InitialEnemyCount { get; private set; }
         public int RemainingEnemyCount => activeEnemies.Count;
         public IReadOnlyList<EnemyController2D> ActiveEnemies => activeEnemies;
 
@@ -100,6 +101,7 @@ namespace AICompanionRoguelike.Roguelike
             IsRoomCleared = false;
 
             int enemyCount = GetEnemyCount(roomType);
+            InitialEnemyCount = enemyCount;
             for (int i = 0; i < enemyCount; i++)
             {
                 SpawnEnemy(i, enemyCount);
@@ -556,6 +558,7 @@ namespace AICompanionRoguelike.Roguelike
             }
 
             activeEnemies.Clear();
+            InitialEnemyCount = 0;
 
             if (enemyContainer == null)
             {

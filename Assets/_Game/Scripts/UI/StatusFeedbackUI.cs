@@ -181,9 +181,13 @@ namespace AICompanionRoguelike.UI
         private void DrawStatusPanel()
         {
             Rect effectivePanelRect = panelRect;
-            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 320f);
+            effectivePanelRect.height = Mathf.Max(effectivePanelRect.height, 380f);
             GUILayout.BeginArea(effectivePanelRect, GUI.skin.box);
             GUILayout.Label("Run Status");
+            GUILayout.Space(4f);
+            GUILayout.Label(BuildRoomObjectiveLine());
+            GUILayout.Label(BuildRoomProgressLine());
+            GUILayout.Label(BuildNextStepLine());
             GUILayout.Space(4f);
             GUILayout.Label(BuildPlayerHealthLine());
             GUILayout.Label(BuildChallengeBuffLine());
@@ -222,6 +226,21 @@ namespace AICompanionRoguelike.UI
             }
 
             return $"Player HP: {playerHealth.CurrentHealth:0}/{playerHealth.MaxHealth:0}";
+        }
+
+        private string BuildRoomObjectiveLine()
+        {
+            return runManager != null ? runManager.CurrentRoomObjectiveLabel : "Objective: --";
+        }
+
+        private string BuildRoomProgressLine()
+        {
+            return runManager != null ? runManager.CurrentRoomProgressLabel : "Progress: --";
+        }
+
+        private string BuildNextStepLine()
+        {
+            return runManager != null ? runManager.CurrentNextStepLabel : "Next: --";
         }
 
         private string BuildChallengeBuffLine()

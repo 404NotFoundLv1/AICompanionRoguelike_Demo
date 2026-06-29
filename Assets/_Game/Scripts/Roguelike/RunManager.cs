@@ -194,6 +194,9 @@ namespace AICompanionRoguelike.Roguelike
         public string CurrentRouteProgressLabel => BuildCurrentRouteProgressLabel();
         public string CurrentRoutePathLabel => BuildCurrentRoutePathLabel();
         public string CurrentRouteMapLabel => BuildCurrentRouteMapLabel();
+        public string CurrentRoomObjectiveLabel => BuildCurrentRoomObjectiveLabel();
+        public string CurrentRoomProgressLabel => BuildCurrentRoomProgressLabel();
+        public string CurrentNextStepLabel => BuildCurrentNextStepLabel();
         public IReadOnlyList<RoomType> CurrentRoomChoices => currentRoomChoices;
         public IReadOnlyList<RoomModifierType> CurrentRoomChoiceModifiers => currentRoomChoiceModifiers;
         public IReadOnlyList<RoomChoicePreview> CurrentRoomChoicePreviews => currentRoomChoicePreviews;
@@ -859,6 +862,8 @@ namespace AICompanionRoguelike.Roguelike
             {
                 PrepareNextRoomChoices();
             }
+
+            SetRoomFeedback(AppendRouteOpenedFeedback(lastRoomFeedbackMessage));
         }
 
         private bool WasNextRoomPressed()
@@ -1750,7 +1755,7 @@ namespace AICompanionRoguelike.Roguelike
             if (ShouldOfferReward(roomType))
             {
                 feedback = AppendTacticClearFeedback(AppendSupplyFeedback(
-                    $"Room Clear - room #{roomNumber} cleared. Choose a reward, then select the next route.",
+                    $"Room Clear - room #{roomNumber} cleared. Reward Available. Choose a reward, then select the next route.",
                     supplyLine));
                 return AppendRelicFeedback(feedback, lastRelicFeedbackMessage);
             }
@@ -1778,6 +1783,16 @@ namespace AICompanionRoguelike.Roguelike
             return string.IsNullOrWhiteSpace(supplyLine)
                 ? baseMessage
                 : $"{baseMessage} {supplyLine}";
+        }
+
+        private static string AppendRouteOpenedFeedback(string baseMessage)
+        {
+            string message = string.IsNullOrWhiteSpace(baseMessage)
+                ? "Route Opened."
+                : baseMessage;
+            return message.Contains("Route Opened")
+                ? message
+                : $"{message} Route Opened.";
         }
 
         private static string AppendTacticClearFeedback(string baseMessage)
@@ -2322,6 +2337,174 @@ namespace AICompanionRoguelike.Roguelike
             currentRouteHistory.Add(roomType);
             currentRouteModifierHistory.Add(roomModifier);
             RunSessionState.RecordRoomEntered(roomType, roomNumber, roomModifier);
+        }
+
+        private string BuildCurrentRoomObjectiveLabel()
+        {
+            if (runCompleted)
+            {
+                return "Objective: Run complete";
+            }
+
+            if (waitingForReward)
+            {
+                return CurrentRoomType == RoomType.ShopRoom
+                    ? "Objective: Choose a shop reward"
+                    : "Objective: Room Cleared - Reward Available";
+            }
+
+            if (waitingForRest)
+            {
+                return "Objective: Choose a rest option";
+            }
+
+            if (waitingForNextRoom && ShouldShowSupportRoomObjective())
+            {
+                return CurrentRoomType == RoomType.SafeRoom
+                    ? "Objective: Use rest point or skip"
+                    : "Objective: Interact with shop or skip";
+            }
+
+            if (waitingForNextRoom)
+            {
+                return "Objective: Route opened";
+            }
+
+            if (IsCombatRoom(CurrentRoomType))
+            {
+                int total = GetCurrentRoomInitialEnemyCount();
+                int defeated = Mathf.Clamp(total - GetCurrentRoomRemainingEnemyCount(), 0, total);
+                return total > 0
+                    ? $"Objective: Defeat enemies {defeated}/{total}"
+                    : "Objective: Clear the room";
+            }
+
+            switch (CurrentRoomType)
+            {
+                case RoomType.SafeRoom:
+                    return "Objective: Use rest point or skip";
+                case RoomType.ShopRoom:
+                    return "Objective: Interact with shop or skip";
+                default:
+                    return $"Objective: Explore {CurrentRoomType}";
+            }
+        }
+
+        private string BuildCurrentRoomProgressLabel()
+        {
+            if (runCompleted)
+            {
+                return "Progress: Run complete";
+            }
+
+            if (waitingForReward)
+            {
+                return $"Progress: Reward Available - {currentRewardChoices.Count} option(s)";
+            }
+
+            if (waitingForRest)
+            {
+                return $"Progress: Rest options - {currentRestChoices.Count} choice(s)";
+            }
+
+            if (waitingForNextRoom)
+            {
+                if (ShouldShowSupportRoomObjective())
+                {
+                    return CurrentRoomType == RoomType.SafeRoom
+                        ? "Progress: Safe room - rest point available"
+                        : $"Progress: Supply room - supplies {currentSupplies}";
+                }
+
+                return $"Progress: Route Opened - {currentRoomChoices.Count} path(s)";
+            }
+
+            if (IsCombatRoom(CurrentRoomType))
+            {
+                int total = GetCurrentRoomInitialEnemyCount();
+                int remaining = GetCurrentRoomRemainingEnemyCount();
+                return total > 0
+                    ? $"Progress: Enemies remaining: {remaining}/{total}"
+                    : "Progress: No enemies";
+            }
+
+            switch (CurrentRoomType)
+            {
+                case RoomType.SafeRoom:
+                    return "Progress: Safe room";
+                case RoomType.ShopRoom:
+                    return $"Progress: Supply room - supplies {currentSupplies}";
+                default:
+                    return "Progress: scouting";
+            }
+        }
+
+        private string BuildCurrentNextStepLabel()
+        {
+            if (runCompleted)
+            {
+                return $"Next: Press {completionReturnHomeKey} to return home";
+            }
+
+            if (waitingForReward)
+            {
+                return CurrentRoomType == RoomType.ShopRoom
+                    ? "Next: Select a shop reward or close"
+                    : "Next: Select a reward";
+            }
+
+            if (waitingForRest)
+            {
+                return "Next: Pick one rest choice or close";
+            }
+
+            if (waitingForNextRoom && ShouldShowSupportRoomObjective())
+            {
+                return CurrentRoomType == RoomType.SafeRoom
+                    ? "Next: Interact with rest point or choose a route"
+                    : "Next: Interact with shop or choose a route";
+            }
+
+            if (waitingForNextRoom)
+            {
+                return "Next: Choose a route";
+            }
+
+            if (IsCombatRoom(CurrentRoomType))
+            {
+                return "Next: Clear the room";
+            }
+
+            return "Next: Explore";
+        }
+
+        private bool ShouldShowSupportRoomObjective()
+        {
+            if (CurrentRoomType == RoomType.SafeRoom)
+            {
+                return !safeRestUsedThisRoom
+                    && !waitingForRest
+                    && string.IsNullOrWhiteSpace(lastSafeRestFeedbackMessage);
+            }
+
+            if (CurrentRoomType == RoomType.ShopRoom)
+            {
+                return !shopRewardPurchasedThisRoom
+                    && !waitingForReward
+                    && string.IsNullOrWhiteSpace(lastShopFeedbackMessage);
+            }
+
+            return false;
+        }
+
+        private int GetCurrentRoomInitialEnemyCount()
+        {
+            return roomManager != null ? Mathf.Max(0, roomManager.InitialEnemyCount) : 0;
+        }
+
+        private int GetCurrentRoomRemainingEnemyCount()
+        {
+            return roomManager != null ? Mathf.Max(0, roomManager.RemainingEnemyCount) : 0;
         }
 
         private string BuildCurrentRouteProgressLabel()
